@@ -6,7 +6,9 @@ Read the [foundation review](docs/foundation-review.md) for prioritized findings
 
 ## Current scope
 
-The prototype provides member chore lists, completion toggles, admin chore assignment, and basic requests. Account administration, actual chore trades, request conversations, weekly/monthly calendar grids, and notifications are not implemented. This branch prepares deployment configuration; it does not migrate the application to Blazor.
+The app now uses one shared login and dashboard for admins and members, with responsive navigation, chore cards, status filters, a month calendar, progress summaries, and request forms. Admins additionally see household-wide chores, member filters, the household roster, assignment tools, and request review. Members only see their own chores and requests; API guards enforce admin privileges. Legacy `/admin` and `/profile` URLs redirect to `/dashboard` after the appropriate access checks.
+
+Account administration, actual chore trades, threaded conversations, weekly calendars, and notifications remain future work. This redesign uses the existing Express/EJS runtime; the planned Blazor migration is separate.
 
 **Do not deploy this prototype for real use yet.** The review identifies authentication, request-ownership, and transaction issues. The HTTP session/CSRF bug is fixed with an explicit deployment setting described below; request-ownership and transactional approval findings remain. Replace fixed seed accounts before household deployment. The historical `password123` documentation does not match the seeded password hash.
 

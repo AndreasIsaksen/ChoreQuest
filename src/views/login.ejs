@@ -1,28 +1,75 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ChoreQuest - Login</title>
-  </head>
-  <body>
-    <h1>ChoreQuest</h1>
-    <% if (error) { %>
-      <p><%= error %></p>
-    <% } %>
-    <form method="post" action="/login">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-      <label>
-        Username
-        <input type="text" name="username" required />
-      </label>
-      <br />
-      <label>
-        Password
-        <input type="password" name="password" required />
-      </label>
-      <br />
-      <button type="submit">Login</button>
-    </form>
-  </body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Welcome back · ChoreQuest</title>
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body class="login-page">
+<main class="login-layout">
+<section class="login-story">
+<a class="brand" href="/login">
+<span class="brand-mark">
+<%- include('partials/icon', {name:'home'}) %>
+</span>ChoreQuest<span class="brand-dot">.</span>
+</a>
+<div class="story-copy">
+<span class="eyebrow">A LITTLE TEAMWORK GOES A LONG WAY</span>
+<h1>A happy home.<br>A shared effort.</h1>
+<p>Less reminding. More getting things done.<br>Make the everyday a little easier, together.</p>
+<div class="home-illustration" aria-hidden="true">
+<div class="sun">
+</div>
+<div class="house-roof">
+</div>
+<div class="house-body">
+<div class="house-window">
+</div>
+<div class="house-door">
+</div>
+</div>
+<div class="plant">
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+</div>
+<div class="floating-task">
+<span class="mini-check">✓</span> A little progress, every day.</div>
+</div>
+</div>
+<p class="story-footer">One home. One team.</p>
+</section>
+<section class="login-panel">
+<div class="login-form">
+<span class="eyebrow">YOUR HOUSEHOLD, IN HARMONY</span>
+<h2>Welcome home.</h2>
+<p class="muted">Sign in to see what’s on the agenda.</p>
+<% if (error) { %>
+<div class="alert error" role="alert">
+<%= error %>
+</div>
+<% } %>
+<form method="post" action="/login" class="stack">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label>Username<input name="username" autocomplete="username" placeholder="Your username" required autofocus>
+</label>
+<label>Password<input type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required>
+</label>
+<button class="button primary full" type="submit">Sign in <%- include('partials/icon', {name:'arrow'}) %>
+</button>
+</form>
+<p class="login-help">Need help signing in?<br>Ask your household administrator.</p>
+<div class="shared-login">
+<%- include('partials/icon', {name:'people'}) %>
+<span>One sign-in for the whole household.<br>Your account determines what you can manage.</span>
+</div>
+</div>
+<span class="panel-footer">Small tasks. A big difference.</span>
+</section>
+</main>
+</body>
 </html>
