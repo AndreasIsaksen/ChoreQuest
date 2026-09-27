@@ -1,0 +1,26 @@
+{
+  "name": "chorequest",
+  "version": "1.0.0",
+  "description": "WebApp solution for structuring a chore system for the familiy.",
+  "main": "src/server.js",
+  "scripts": {
+    "test": "node --test",
+    "start": "node src/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://localhost:26831/AndreasIsaksen/ChoreQuest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^18.0.4",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "express-session": "^1.19.0",
+    "pg": "^8.23.0"
+  }
+}

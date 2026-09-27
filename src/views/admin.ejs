@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChoreQuest - Admin</title>
+  </head>
+  <body>
+    <h1>Admin Dashboard</h1>
+    <form method="post" action="/logout">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <button type="submit">Logout</button>
+    </form>
+
+    <h2>Create chore for member</h2>
+    <form method="post" action="/admin/chores">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <label>
+        Member
+        <select name="userId" required>
+          <% users.forEach((member) => { %>
+            <option value="<%= member.id %>"><%= member.display_name %></option>
+          <% }) %>
+        </select>
+      </label>
+      <br />
+      <label>
+        Title
+        <input type="text" name="title" required />
+      </label>
+      <br />
+      <label>
+        Description
+        <textarea name="description"></textarea>
+      </label>
+      <br />
+      <label>
+        Due date
+        <input type="date" name="dueDate" required />
+      </label>
+      <br />
+      <button type="submit">Assign chore</button>
+    </form>
+
+    <h2>All chores</h2>
+    <ul>
+      <% chores.forEach((chore) => { %>
+        <li>
+          <%= chore.due_date %> - <%= chore.display_name %> - <strong><%= chore.title %></strong>
+          [<%= chore.completed ? 'completed' : 'pending' %>]
+        </li>
+      <% }) %>
+    </ul>
+
+    <h2>Member requests</h2>
+    <% if (!requests.length) { %>
+      <p>No requests yet.</p>
+    <% } %>
+    <% requests.forEach((request) => { %>
+      <form method="post" action="/admin/requests/<%= request.id %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <p>
+          <strong><%= request.display_name %></strong> requested <%= request.request_type %> - <%= request.details %>
+          <% if (request.proposed_due_date) { %>(proposed: <%= request.proposed_due_date %>)<% } %>
+        </p>
+        <label>
+          Decision
+          <select name="status" required>
+            <option value="pending" <%= request.status === 'pending' ? 'selected' : '' %>>pending</option>
+            <option value="approved" <%= request.status === 'approved' ? 'selected' : '' %>>approved</option>
+            <option value="rejected" <%= request.status === 'rejected' ? 'selected' : '' %>>rejected</option>
+          </select>
+        </label>
+        <label>
+          Approved due date
+          <input type="date" name="approvedDueDate" />
+        </label>
+        <label>
+          Note
+          <input type="text" name="adminNote" />
+        </label>
+        <button type="submit">Save decision</button>
+      </form>
+      <hr />
+    <% }) %>
+  </body>
+</html>
