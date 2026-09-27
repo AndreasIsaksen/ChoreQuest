@@ -1,62 +1,46 @@
 # ChoreQuest
 
-ChoreQuest is a containerized household chore webapp for local-network deployment.
+A household chore application at the foundation-review stage. The executable prototype uses Node.js, Express, EJS, and PostgreSQL. Future development is planned around a mobile-first Blazor client and a layered ASP.NET Core backend.
 
-## Features
+Read the [foundation review](docs/foundation-review.md) for prioritized findings, requirement coverage, project boundaries, permissions, trade/deadline rules, calendars, notifications, and implementation acceptance gates. The [server assessment](docs/server-assessment.md) records the inspected Docker environment and database recommendation.
 
-- Separate member profiles
-- Chore calendar view with due dates, descriptions, and completion checkboxes
-- Admin dashboard to assign chores per member
-- Member request workflow for different chores, due date changes, and other updates
-- PostgreSQL data storage in a separate container
+## Current scope
 
-## Tech Stack
+The prototype provides member chore lists, completion toggles, admin chore assignment, and basic requests. Account administration, actual chore trades, request conversations, weekly/monthly calendar grids, and notifications are not implemented. This branch prepares deployment configuration; it does not migrate the application to Blazor.
 
-- Node.js + Express + EJS
-- PostgreSQL
-- Docker Compose
+**Do not deploy this prototype for real use yet.** The review identifies authentication, request-ownership, and transaction issues. In particular, session cookies require HTTPS, so the previously documented plain-HTTP login does not work. Resolve those findings and replace fixed seed accounts before deployment.
 
-## Run with Docker
+## Prepare Docker configuration
 
-1. Copy environment file:
+```bash
+cp .env.example .env
+chmod 600 .env
+```
 
-   ```bash
-   cp .env.example .env
-   ```
+Set `SESSION_SECRET` and `DB_PASSWORD` to separate random values (generate each with `openssl rand -hex 32`). Set `WEB_PORT` to an available host port. `WEB_BIND_ADDRESS` defaults to loopback; connect an HTTPS gateway before making the application accessible to the household. Configure trusted proxy forwarding in the application as part of the authentication fix.
 
-2. Start services:
+```bash
+docker compose config --quiet
+```
 
-   ```bash
-   docker compose up --build
-   ```
+The web container always listens internally on port 3000; changing `WEB_PORT` changes only the published host port. PostgreSQL uses `db:5432` on the Compose network and publishes no host port. Database credentials are passed explicitly to the services; missing secrets stop Compose validation. `DB_HOST` and `DB_PORT` in the example are for standalone development; Compose fixes these to its dedicated database service.
 
-3. Open: <http://localhost:3000>
+After resolving the review's deployment blockers, start with `docker compose up -d --build`. Database readiness gates web startup. Initialization SQL runs only on a new empty database volume; changing `.env` does not rotate an existing PostgreSQL password. Do not remove a data volume to apply schema changes—use migrations and backups.
 
-Default seeded users (password for all users: `password123`):
+Both Git and the Docker build context exclude real `.env` files and variants. Only the non-secret `.env.example` is tracked. Never paste `docker compose config` output containing resolved secrets into a ticket; use `--quiet` for validation.
 
-- Admin: `admin`
-- Members: `alex`, `sam`
+## Development and tests
 
-## Local Development (without Docker)
-
-1. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-2. Ensure PostgreSQL is running and `db/init.sql` has been applied.
-3. Set environment variables from `.env.example`.
-4. Run:
-
-   ```bash
-   npm start
-   ```
-
-## Tests
-
-Run targeted tests with:
+The legacy app can be installed with `npm ci`; it requires a PostgreSQL database initialized from `db/init.sql`. `npm start` loads `.env` and uses port 3000 by default. Its current login still requires the authentication/deployment fixes described above. Fixed seed hashes are prototype fixtures, not a production bootstrap mechanism.
 
 ```bash
 npm test
 ```
+
+If Node is not installed locally, run the existing helper tests with the prototype's container runtime:
+
+```bash
+docker run --rm -v "$PWD:/app:ro" -w /app node:20-alpine npm test
+```
+
+These two tests are limited to string-based date helpers. Passing them does not establish application readiness; see the integration and workflow acceptance gates in the review.
