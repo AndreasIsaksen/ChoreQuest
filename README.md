@@ -8,7 +8,7 @@ Read the [foundation review](docs/foundation-review.md) for prioritized findings
 
 The prototype provides member chore lists, completion toggles, admin chore assignment, and basic requests. Account administration, actual chore trades, request conversations, weekly/monthly calendar grids, and notifications are not implemented. This branch prepares deployment configuration; it does not migrate the application to Blazor.
 
-**Do not deploy this prototype for real use yet.** The review identifies authentication, request-ownership, and transaction issues. In particular, session cookies require HTTPS, so the previously documented plain-HTTP login does not work. Resolve those findings and replace fixed seed accounts before deployment.
+**Do not deploy this prototype for real use yet.** The review identifies authentication, request-ownership, and transaction issues. The HTTP session/CSRF bug is fixed with an explicit deployment setting described below; request-ownership and transactional approval findings remain. Replace fixed seed accounts before household deployment. The historical `password123` documentation does not match the seeded password hash.
 
 ## Prepare Docker configuration
 
@@ -17,7 +17,19 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Set `SESSION_SECRET` and `DB_PASSWORD` to separate random values (generate each with `openssl rand -hex 32`). Set `WEB_PORT` to an available host port. `WEB_BIND_ADDRESS` defaults to loopback; connect an HTTPS gateway before making the application accessible to the household. Configure trusted proxy forwarding in the application as part of the authentication fix.
+Set `SESSION_SECRET` and `DB_PASSWORD` to separate random values (generate each with `openssl rand -hex 32`). Set `WEB_PORT` to an available host port. `WEB_BIND_ADDRESS` defaults to loopback.
+
+For local HTTP accessed through an SSH tunnel, explicitly set `SESSION_COOKIE_SECURE=false` in the server `.env`. Keep `TRUST_PROXY` empty. From your computer, run:
+
+```bash
+ssh -N -L 8095:127.0.0.1:8095 aragnaroth@10.230.1.208
+```
+
+Then open <http://localhost:8095>. HTTP mode keeps HttpOnly, SameSite=Lax, and CSRF protection, but does not encrypt browser traffic itself; the SSH tunnel protects the remote connection. The server binding remains loopback.
+
+For HTTPS, keep `SESSION_COOKIE_SECURE=true` (the default). If TLS terminates at a reverse proxy, set `TRUST_PROXY` to only that proxy's IP address or CIDR, and ensure the proxy overwrites forwarded headers. Empty `TRUST_PROXY` trusts no proxy. Invalid cookie-mode values fail startup. Do not enable blanket proxy trust or expose plain HTTP with passwords on a public network.
+
+Compose passes these settings into the web container; recreate it after changes with `docker compose up -d --build web`. Login regenerates the session and CSRF token, saves the session before redirecting, and logout destroys it. Sessions still use the prototype's in-memory store, so restarting the web container signs users out.
 
 ```bash
 docker compose config --quiet
@@ -31,16 +43,17 @@ Both Git and the Docker build context exclude real `.env` files and variants. On
 
 ## Development and tests
 
-The legacy app can be installed with `npm ci`; it requires a PostgreSQL database initialized from `db/init.sql`. `npm start` loads `.env` and uses port 3000 by default. Its current login still requires the authentication/deployment fixes described above. Fixed seed hashes are prototype fixtures, not a production bootstrap mechanism.
+The legacy app can be installed with `npm ci`; it requires a PostgreSQL database initialized from `db/init.sql`. `npm start` loads `.env` and uses port 3000 by default. Use the cookie mode appropriate to your HTTP or HTTPS setup as described above. Fixed seed hashes are prototype fixtures, not a production bootstrap mechanism.
 
 ```bash
 npm test
 ```
 
-If Node is not installed locally, run the existing helper tests with the prototype's container runtime:
+If Node is not installed locally, run the full suite in the built image:
 
 ```bash
-docker run --rm -v "$PWD:/app:ro" -w /app node:20-alpine npm test
+docker build -t chorequest-test .
+docker run --rm chorequest-test npm test
 ```
 
-These two tests are limited to string-based date helpers. Passing them does not establish application readiness; see the integration and workflow acceptance gates in the review.
+The suite covers HTTP admin/member login, session/CSRF renewal, logout, invalid credentials, CSRF rejection, secure-cookie defaults, trusted/untrusted forwarding, and the existing date helpers. Authentication tests need dependencies: use `docker build -t chorequest-test .` followed by `docker run --rm chorequest-test npm test` for the full containerized suite. Passing tests does not establish full application readiness; see the remaining acceptance gates in the review.

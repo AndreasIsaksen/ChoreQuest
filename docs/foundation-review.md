@@ -2,6 +2,8 @@
 
 Reviewed 2026-09-27 against baseline commit `357f8b6`.
 
+Follow-up: the HTTP cookie/CSRF login issue and session regeneration/logout handling are now fixed and covered by authentication regression tests. Explicit local HTTP mode uses `SESSION_COOKIE_SECURE=false`; HTTPS remains the default. The findings below describe the original reviewed baseline; other permission, workflow, and storage findings remain open. See README for current deployment settings.
+
 ## Decision
 
 Keep this prototype as a behavior reference, but move future feature development to a layered .NET 10 solution with a mobile-first Blazor frontend. The current implementation is not ready for household use: authentication over the documented HTTP deployment is broken, request ownership is not enforced, and the data model cannot preserve responsibility at a missed deadline.
