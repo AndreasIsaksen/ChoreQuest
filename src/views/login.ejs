@@ -11,6 +11,7 @@
       <p><%= error %></p>
     <% } %>
     <form method="post" action="/login">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
       <label>
         Username
         <input type="text" name="username" required />

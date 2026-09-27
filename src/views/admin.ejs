@@ -7,10 +7,14 @@
   </head>
   <body>
     <h1>Admin Dashboard</h1>
-    <form method="post" action="/logout"><button type="submit">Logout</button></form>
+    <form method="post" action="/logout">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <button type="submit">Logout</button>
+    </form>
 
     <h2>Create chore for member</h2>
     <form method="post" action="/admin/chores">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
       <label>
         Member
         <select name="userId" required>
@@ -54,6 +58,7 @@
     <% } %>
     <% requests.forEach((request) => { %>
       <form method="post" action="/admin/requests/<%= request.id %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
         <p>
           <strong><%= request.display_name %></strong> requested <%= request.request_type %> - <%= request.details %>
           <% if (request.proposed_due_date) { %>(proposed: <%= request.proposed_due_date %>)<% } %>

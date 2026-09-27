@@ -1,7 +1,9 @@
 require('dotenv').config();
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
+const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcrypt');
 const pool = require('./db');
 const { filterChoresByMonth, groupChoresByDate } = require('./helpers');
@@ -13,12 +15,37 @@ app.set('views', path.join(__dirname, 'views'));
 
 app.use(express.urlencoded({ extended: false }));
 app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 250,
+    standardHeaders: true,
+    legacyHeaders: false
+  })
+);
+app.use(
   session({
     secret: process.env.SESSION_SECRET || 'local-dev-secret',
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true
+    }
   })
 );
+app.use((req, res, next) => {
+  if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+  res.locals.csrfToken = req.session.csrfToken;
+  next();
+});
+app.use((req, res, next) => {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  if (req.body._csrf === req.session.csrfToken || req.headers['x-csrf-token'] === req.session.csrfToken) {
+    return next();
+  }
+  return res.status(403).send('Invalid CSRF token');
+});
 
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.redirect('/login');
