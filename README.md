@@ -59,3 +59,13 @@ docker run --rm chorequest-test npm test
 ```
 
 The suite covers HTTP admin/member login, session/CSRF renewal, logout, invalid credentials, CSRF rejection, secure-cookie defaults, trusted/untrusted forwarding, and the existing date helpers. Authentication tests need dependencies: use `docker build -t chorequest-test .` followed by `docker run --rm chorequest-test npm test` for the full containerized suite. Passing tests does not establish full application readiness; see the remaining acceptance gates in the review.
+
+## Admin chores and accounts
+
+Admins can create unassigned one-off chores, optionally without a deadline, then assign them later. Recurring chores use a start date and an interval of 1–365 days, weeks, or months. Each occurrence has an inclusive start/end window and can be completed once within that window; completing it does not change subsequent periods. Late completion is stored with its timestamp. Calendar views show the whole window.
+
+For example, a two-week window starting Monday ends the second Sunday. Monthly boundaries remain anchored to the original date, so a January 31 start follows February 28/29 and March 31. New occurrences are generated at startup, every minute, and when loading a dashboard. Unique period keys and a PostgreSQL advisory lock prevent duplicates; after downtime, missing periods are created with their original deadlines. Schedules starting in the future appear under **Recurring schedules** until the first window begins. Pausing stops generation; resuming catches up missed windows. Schedule assignment changes affect future periods; individual chore assignment changes affect only that occurrence.
+
+The **Household** page lets admins create accounts, change display names/roles, reset passwords, and remove or restore accounts. Removal is reversible: sign-in is revoked, current unfinished/undated chores and future periods become unassigned, and completed/overdue history remains. Usernames stay reserved. Changes revoke existing sessions. An admin cannot remove or demote their own account, and at least one active admin must remain.
+
+Schema changes in `db/migrations` are applied transactionally at startup and recorded in `schema_migrations`. Back up existing databases before deploying. Integration tests must run only against a disposable database: `TEST_DATABASE_URL=postgres://... npm test` creates fixture users and changes test data. Without this variable, database integration tests are skipped.

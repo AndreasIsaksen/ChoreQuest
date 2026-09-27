@@ -6,6 +6,8 @@ const session = require("express-session");
 const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcrypt");
 const pool = require("./db");
+const { migrate } = require("./migrate");
+const { installAdmin, date, transaction, problem } = require("./admin");
 const { dateKey, formatDate, calendarDays, todayKey } = require("./helpers");
 
 function createApp({ db = pool, env = process.env } = {}) {
@@ -65,6 +67,29 @@ function createApp({ db = pool, env = process.env } = {}) {
     return res.status(403).send("Invalid CSRF token");
   });
 
+  // Recheck account state on every request so removal and password/role changes revoke sessions.
+  app.use(async (req, res, next) => {
+    if (!req.session.user) return next();
+    const account = (
+      await db.query(
+        "SELECT id, username, display_name, role, deleted_at, session_version FROM users WHERE id=$1",
+        [req.session.user.id],
+      )
+    ).rows[0];
+    if (
+      !account ||
+      account.deleted_at ||
+      account.session_version !== req.session.user.sessionVersion
+    ) {
+      return req.session.destroy((err) =>
+        err ? next(err) : res.redirect("/login"),
+      );
+    }
+    req.session.user.displayName = account.display_name;
+    req.session.user.role = account.role;
+    next();
+  });
+
   function requireAuth(req, res, next) {
     if (!req.session.user) return res.redirect("/login");
     next();
@@ -88,8 +113,12 @@ function createApp({ db = pool, env = process.env } = {}) {
 
   app.post("/login", async (req, res) => {
     const { username, password } = req.body;
+    if (typeof username !== "string" || typeof password !== "string")
+      return res
+        .status(401)
+        .render("login", { error: "Invalid username or password" });
     const result = await db.query(
-      "SELECT id, username, display_name, role, password_hash FROM users WHERE username = $1",
+      "SELECT id, username, display_name, role, password_hash, session_version FROM users WHERE lower(username) = lower($1) AND deleted_at IS NULL",
       [username],
     );
 
@@ -114,6 +143,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       username: user.username,
       displayName: user.display_name,
       role: user.role,
+      sessionVersion: user.session_version,
     };
 
     await new Promise((resolve, reject) =>
@@ -131,7 +161,9 @@ function createApp({ db = pool, env = process.env } = {}) {
   });
 
   app.get("/profile", requireAuth, (req, res) => res.redirect("/dashboard"));
-  app.get("/admin", requireAuth, requireAdmin, (req, res) => res.redirect("/dashboard"));
+  app.get("/admin", requireAuth, requireAdmin, (req, res) =>
+    res.redirect("/dashboard"),
+  );
 
   app.get("/dashboard", requireAuth, async (req, res) => {
     const user = req.session.user;
@@ -147,14 +179,19 @@ function createApp({ db = pool, env = process.env } = {}) {
       ? req.query.month
       : todayKey().slice(0, 7);
     const member =
-      isAdmin && /^\d+$/.test(req.query.member || "") ? req.query.member : "";
+      isAdmin &&
+      (req.query.member === "unassigned" ||
+        /^\d+$/.test(req.query.member || ""))
+        ? req.query.member
+        : "";
     const status = ["open", "completed", "overdue"].includes(req.query.status)
       ? req.query.status
       : "all";
     const view = req.query.view === "calendar" ? "calendar" : "list";
+    await db.query("SELECT generate_chore_occurrences($1::date)", [todayKey()]);
     const choresResult = await db.query(
       `SELECT c.id, c.user_id, c.title, c.description, to_char(c.due_date, 'YYYY-MM-DD') AS due_date,
-       c.completed, u.display_name FROM chores c JOIN users u ON u.id = c.user_id
+       c.completed, (c.completed AND (c.completed_at AT TIME ZONE 'Europe/Oslo')::date > c.due_date) AS completed_late, c.series_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at, COALESCE(u.display_name, 'Unassigned') AS display_name FROM chores c LEFT JOIN users u ON u.id = c.user_id
        ${isAdmin ? "" : "WHERE c.user_id = $1"} ORDER BY c.due_date, c.id`,
       isAdmin ? [] : [user.id],
     );
@@ -167,31 +204,54 @@ function createApp({ db = pool, env = process.env } = {}) {
     const users = isAdmin
       ? (
           await db.query(
-            "SELECT id, display_name, role FROM users ORDER BY display_name",
+            "SELECT id, username, display_name, role, deleted_at FROM users ORDER BY deleted_at NULLS FIRST, display_name",
           )
         ).rows
       : [];
+    const series = isAdmin
+      ? (
+          await db.query(
+            "SELECT s.*, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on, COALESCE(u.display_name, 'Unassigned') AS display_name FROM chore_series s LEFT JOIN users u ON u.id=s.user_id ORDER BY s.id DESC",
+          )
+        ).rows
+      : [];
+    const activeUsers = users.filter((u) => !u.deleted_at);
     const allChores = choresResult.rows.map((c) => ({
       ...c,
-      due_date: dateKey(c.due_date),
+      due_date: c.due_date ? dateKey(c.due_date) : null,
     }));
     const scoped = allChores.filter(
-      (c) => !member || String(c.user_id) === member,
+      (c) =>
+        !member ||
+        (member === "unassigned"
+          ? c.user_id === null
+          : String(c.user_id) === member),
     );
     const today = todayKey();
     const stats = {
       total: scoped.length,
       completed: scoped.filter((c) => c.completed).length,
-      overdue: scoped.filter((c) => !c.completed && c.due_date < today).length,
+      overdue: scoped.filter(
+        (c) => !c.completed && c.due_date && c.due_date < today,
+      ).length,
       pending: requestsResult.rows.filter((r) => r.status === "pending").length,
     };
+    const monthEnd = calendarDays(selectedMonth)
+      .filter((d) => d.inMonth)
+      .at(-1).key;
     const chores = scoped.filter(
       (c) =>
-        (view !== "calendar" || c.due_date.startsWith(selectedMonth)) &&
+        (view !== "calendar" ||
+          (c.due_date &&
+            (c.window_start
+              ? c.window_start <= monthEnd &&
+                c.due_date >= selectedMonth + "-01"
+              : c.due_date.startsWith(selectedMonth)))) &&
         (status === "all" ||
           (status === "completed"
             ? c.completed
-            : !c.completed && (status !== "overdue" || c.due_date < today))),
+            : !c.completed &&
+              (status !== "overdue" || (c.due_date && c.due_date < today)))),
     );
     const flash = req.session.flash;
     delete req.session.flash;
@@ -204,6 +264,8 @@ function createApp({ db = pool, env = process.env } = {}) {
       status,
       view,
       users,
+      activeUsers,
+      series,
       allChores,
       chores,
       requests: requestsResult.rows,
@@ -222,7 +284,7 @@ function createApp({ db = pool, env = process.env } = {}) {
 
   app.post("/chores/:id/toggle", requireAuth, async (req, res) => {
     await db.query(
-      "UPDATE chores SET completed = NOT completed WHERE id = $1 AND user_id = $2",
+      "UPDATE chores SET completed = NOT completed, completed_at=CASE WHEN completed THEN NULL ELSE now() END WHERE id = $1 AND user_id = $2 AND (window_start IS NULL OR window_start <= (now() AT TIME ZONE 'Europe/Oslo')::date)",
       [req.params.id, req.session.user.id],
     );
     req.session.flash = "Your change has been saved.";
@@ -262,40 +324,57 @@ function createApp({ db = pool, env = process.env } = {}) {
     return res.redirect("/dashboard?section=requests");
   });
 
-  app.post("/admin/chores", requireAdmin, async (req, res) => {
-    const { userId, title, description, dueDate } = req.body;
-    await db.query(
-      "INSERT INTO chores (user_id, title, description, due_date) VALUES ($1, $2, $3, $4)",
-      [userId, title, description || "", dueDate],
-    );
-    req.session.flash = "Your change has been saved.";
-    return res.redirect("/dashboard");
-  });
+  installAdmin(app, db, requireAdmin);
 
   app.post("/admin/requests/:id", requireAdmin, async (req, res) => {
     const { status, adminNote, approvedDueDate } = req.body;
 
-    const requestResult = await db.query(
-      "UPDATE chore_requests SET status = $1, admin_note = $2 WHERE id = $3 RETURNING chore_id",
-      [status, adminNote || null, req.params.id],
-    );
-
-    if (
-      status === "approved" &&
-      approvedDueDate &&
-      requestResult.rows[0]?.chore_id
-    ) {
-      await db.query("UPDATE chores SET due_date = $1 WHERE id = $2", [
-        approvedDueDate,
-        requestResult.rows[0].chore_id,
-      ]);
-    }
+    if (!["pending", "approved", "rejected"].includes(status))
+      problem("Choose a valid decision.");
+    const due = date(approvedDueDate);
+    await transaction(db, async (c) => {
+      const request = (
+        await c.query("SELECT * FROM chore_requests WHERE id=$1 FOR UPDATE", [
+          req.params.id,
+        ])
+      ).rows[0];
+      if (!request) problem("Request not found.", 404);
+      if (status === "approved" && due && request.chore_id) {
+        const chore = (
+          await c.query("SELECT * FROM chores WHERE id=$1 FOR UPDATE", [
+            request.chore_id,
+          ])
+        ).rows[0];
+        if (chore?.series_id)
+          problem(
+            "Recurring chores follow their completion windows. A request cannot change a recurring deadline.",
+          );
+        await c.query("UPDATE chores SET due_date=$1 WHERE id=$2", [
+          due,
+          request.chore_id,
+        ]);
+      }
+      await c.query(
+        "UPDATE chore_requests SET status=$1,admin_note=$2 WHERE id=$3",
+        [status, adminNote || null, request.id],
+      );
+    });
 
     req.session.flash = "Your change has been saved.";
     return res.redirect("/dashboard?section=requests");
   });
 
   app.use((err, req, res, next) => {
+    if (err.status || err.code === "23505") {
+      return res
+        .status(err.status || 409)
+        .render("error", {
+          message:
+            err.code === "23505"
+              ? "That username is already in use, including removed accounts."
+              : err.message,
+        });
+    }
     console.error(err);
     res.status(500).send("Unexpected server error");
   });
@@ -304,10 +383,26 @@ function createApp({ db = pool, env = process.env } = {}) {
 }
 
 if (require.main === module) {
-  const port = Number(process.env.PORT || 3000);
-  createApp().listen(port, () => {
-    console.log(`ChoreQuest running on port ${port}`);
+  (async () => {
+    await migrate(pool);
+    await pool.query("SELECT generate_chore_occurrences($1::date)", [
+      todayKey(),
+    ]);
+    const timer = setInterval(
+      () =>
+        pool
+          .query("SELECT generate_chore_occurrences($1::date)", [todayKey()])
+          .catch(console.error),
+      60000,
+    );
+    timer.unref();
+    const port = Number(process.env.PORT || 3000);
+    createApp().listen(port, () =>
+      console.log(`ChoreQuest running on port ${port}`),
+    );
+  })().catch((err) => {
+    console.error(err);
+    process.exit(1);
   });
 }
-
 module.exports = { createApp };

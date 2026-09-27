@@ -13,6 +13,21 @@ async function fixture(t, settings = {}) {
     async query(sql, values) {
       calls += 1;
       queries.push({ sql, values });
+      if (sql.includes("session_version FROM users WHERE id=")) {
+        const role = values[0] === 1 ? "admin" : "member";
+        return {
+          rows: [
+            {
+              id: values[0],
+              username: role,
+              display_name: role,
+              role,
+              session_version: 0,
+              deleted_at: null,
+            },
+          ],
+        };
+      }
       if (sql.includes("password_hash")) {
         const username = values[0];
         return {
@@ -24,6 +39,7 @@ async function fixture(t, settings = {}) {
                   display_name: username,
                   role: username,
                   password_hash: passwordHash,
+                  session_version: 0,
                 },
               ]
             : [],
@@ -101,10 +117,10 @@ for (const role of ["admin", "member"]) {
     const dashboard = await authenticated.text();
     const newCsrf = token(dashboard);
     if (role === "admin") {
-      assert.match(dashboard, /Assign a new chore/);
+      assert.match(dashboard, /Create a new chore/);
       assert.match(dashboard, /Household admin/);
     } else {
-      assert.doesNotMatch(dashboard, /Assign a new chore/);
+      assert.doesNotMatch(dashboard, /Create a new chore/);
       assert.equal(
         (
           await f.request("/dashboard?section=household", {

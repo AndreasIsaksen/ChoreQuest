@@ -1628,3 +1628,7 @@ textarea::placeholder {
 .panel-footer {
   color: #75816a;
 }
+[hidden] { display: none !important; }
+.recurrence-fields { padding: 16px; background: #f5f7ef; border-radius: 12px; }
+.member-card .stack { text-align: left; margin-top: 12px; }
+.member-card .decision { border-top: 1px solid var(--line); }

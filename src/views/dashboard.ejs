@@ -94,7 +94,7 @@
 </p>
 <a class="button primary" href="/dashboard?section=chores<%= isAdmin ? '#new-chore' : '' %>">
 <%- include('partials/icon',{name:isAdmin ? 'plus' : 'arrow'}) %>
-<%= isAdmin ? 'Assign a chore' : 'View my chores' %>
+<%= isAdmin ? 'Create a chore' : 'View my chores' %>
 </a>
 </div>
 <div class="welcome-art" aria-hidden="true">
@@ -202,7 +202,7 @@
 </label>
 <% if(isAdmin) { %>
 <label>Member<select name="member">
-<option value="">Everyone</option>
+<option value="">Everyone</option><option value="unassigned" <%= member==='unassigned'?'selected':'' %>>Unassigned</option>
 <% users.forEach(person=>{ %>
 <option value="<%= person.id %>" <%= member===String(person.id)?'selected':'' %>>
 <%= person.display_name %>
@@ -224,7 +224,7 @@
 <%= day %>
 </div>
 <% }) %>
-<% days.forEach(day=>{ const dayChores=chores.filter(c=>c.due_date===day.key); %>
+<% days.forEach(day=>{ const dayChores=chores.filter(c=>day.inMonth && (c.window_start ? day.key>=c.window_start && day.key<=c.due_date : c.due_date===day.key)); %>
 <div class="calendar-day <%= !day.inMonth?'outside':'' %> <%= day.key===today?'today':'' %>">
 <time datetime="<%= day.key %>">
 <%= day.number %>
@@ -251,7 +251,7 @@
 <%= stats.total ? 'No chores match these filters. Try another view.' : isAdmin ? 'Assign the first chore and give everyone a little direction.' : 'Your assigned chores will appear here. Enjoy the breathing room.' %>
 </p>
 <% if(isAdmin && !stats.total) { %>
-<a class="text-link" href="#new-chore">Assign your first chore <span>→</span>
+<a class="text-link" href="#new-chore">Create your first chore <span>→</span>
 </a>
 <% } %>
 </div>
@@ -287,7 +287,7 @@
 <div class="chore-meta">
 <span>
 <%- include('partials/icon',{name:'calendar'}) %>
-<%= formatDate(c.due_date) %>
+<%= c.window_start ? formatDate(c.window_start) + ' – ' : '' %><%= c.due_date ? formatDate(c.due_date) : 'No deadline' %><%= c.series_id ? ' · Once per period' : '' %>
 </span>
 <% if(isAdmin) { %>
 <span class="person-chip">
@@ -298,9 +298,10 @@
 </span>
 <% } %>
 </div>
+<% if(isAdmin && !c.completed) { %><details class="decision"><summary>Manage assignment</summary><form method="post" action="/admin/chores/<%= c.id %>/assign" class="stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Assigned to<select name="userId"><option value="">Unassigned</option><% activeUsers.forEach(p=>{ %><option value="<%= p.id %>" <%= p.id===c.user_id?'selected':'' %>><%= p.display_name %></option><% }) %></select></label><button class="button subtle">Save assignment</button><p class="form-hint">Changes this occurrence only. Use recurring schedules to change future periods.</p></form></details><% } %>
 </div>
 <span class="badge <%= c.completed?'completed':late?'overdue':'pending' %>">
-<%= c.completed?'Done':late?'Overdue':c.due_date===today?'Due today':'To do' %>
+<%= c.completed?(c.completed_late?'Done late':'Done'):late?'Overdue':c.due_date===today?'Due today':'To do' %>
 </span>
 </article>
 <% }) %>
@@ -345,7 +346,7 @@
 <summary>
 <span>
 <span class="eyebrow">ADMIN TOOLS</span>
-<strong>Assign a new chore</strong>
+<strong>Create a new chore</strong>
 </span>
 <span class="summary-plus">+</span>
 </summary>
@@ -353,9 +354,9 @@
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <label>What needs doing?<input name="title" placeholder="e.g. Give the kitchen a fresh start" maxlength="160" required>
 </label>
-<label>Assign to<select name="userId" required>
-<option value="">Choose a household member</option>
-<% users.forEach(person=>{ %>
+<label>Assign to<select name="userId">
+<option value="">Unassigned — decide later</option>
+<% activeUsers.forEach(person=>{ %>
 <option value="<%= person.id %>">
 <%= person.display_name %>
 <%= person.role==='admin'?' (admin)':'' %>
@@ -363,19 +364,25 @@
 <% }) %>
 </select>
 </label>
-<label>Due date<input type="date" name="dueDate" required>
-</label>
+<label>Schedule<select name="schedule" data-schedule><option value="once">One-off chore</option><option value="recurring">Recurring completion window</option></select></label>
+<label data-once>Due date (optional)<input type="date" name="dueDate"></label>
+<div class="wide form-grid recurrence-fields" data-recurring hidden>
+<label>First window starts<input type="date" name="startsOn" value="<%= today %>" min="<%= today %>"></label>
+<label>Repeat every<input type="number" name="intervalCount" min="1" max="365" value="1"></label>
+<label>Period<select name="intervalUnit"><option value="days">Days</option><option value="weeks" selected>Weeks</option><option value="months">Months</option></select></label>
+<p class="form-hint wide">Complete once at any time within each window. For example, every 2 weeks starting Monday gives you until the second Sunday. Each period keeps its own completion record.</p>
+</div>
 <label class="wide">A little more detail <span class="optional">(optional)</span>
 <textarea name="description" rows="3" placeholder="What does a job well done look like?" maxlength="2000">
 </textarea>
 </label>
 <div class="form-footer wide">
 <p>Everyone sees their own chores. Admins can see the whole plan.</p>
-<button class="button primary">Assign chore <%- include('partials/icon',{name:'arrow'}) %>
+<button class="button primary">Create chore <%- include('partials/icon',{name:'arrow'}) %>
 </button>
 </div>
 </form>
-</details>
+</details><section class="panel form-panel"><div class="panel-heading"><h2>Recurring schedules</h2></div><% if(!series.length) { %><p class="padded muted">No recurring schedules yet. Choose a recurring completion window when creating a chore.</p><% } %><% series.forEach(item=>{ %><details class="decision padded"><summary><%= item.title %> · Every <%= item.interval_count %> <%= item.interval_count===1?item.interval_unit.slice(0,-1):item.interval_unit %> · <%= item.active?'Active':'Paused' %></summary><p class="small muted">Starts <%= formatDate(item.starts_on) %>. Each period is generated when it begins. Previous completions stay in the agenda.</p><form class="form-grid" method="post" action="/admin/series/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Assign future periods to<select name="userId"><option value="">Unassigned</option><% activeUsers.forEach(p=>{ %><option value="<%= p.id %>" <%= p.id===item.user_id?'selected':'' %>><%= p.display_name %></option><% }) %></select></label><label>Schedule state<select name="active"><option value="true" <%= item.active?'selected':'' %>>Active</option><option value="false" <%= !item.active?'selected':'' %>>Paused</option></select></label><p class="form-hint wide">Pausing stops new periods from being generated. Resuming creates any missed periods; existing chores are never removed.</p><button class="button subtle">Save schedule</button></form></details><% }) %></section>
 <% } %>
 <% } %>
 <% if(section==='requests') { %>
@@ -505,41 +512,13 @@
 </div>
 <% } %>
 <% if(section==='household' && isAdmin) { %>
-<section class="panel">
-<div class="panel-heading">
-<div>
-<span class="eyebrow">ONE HOME. ONE TEAM.</span>
-<h2>Your household</h2>
-</div>
-<span class="badge pending">
-<%= users.length %> people</span>
-</div>
-<div class="members-grid">
-<% users.forEach(person=>{ const assigned=allChores.filter(c=>c.user_id===person.id); %>
-<article class="member-card">
-<span class="avatar large">
-<%= person.display_name.slice(0,1) %>
-</span>
-<h3>
-<%= person.display_name %>
-</h3>
-<p class="muted small">
-<%= person.role==='admin'?'Household admin':'Household member' %>
-</p>
-<div class="member-stats">
-<strong>
-<%= assigned.filter(c=>!c.completed).length %> <span>to do</span>
-</strong>
-<strong>
-<%= assigned.filter(c=>c.completed).length %> <span>done</span>
-</strong>
-</div>
-<a class="text-link" href="/dashboard?section=chores&member=<%= person.id %>">View chores <span>→</span>
-</a>
-</article>
-<% }) %>
-</div>
-</section>
+<section class="panel"><div class="panel-heading"><h2>Household accounts</h2><span class="badge pending"><%= activeUsers.length %> active</span></div><div class="members-grid">
+<% users.forEach(person=>{ %><article class="member-card"><span class="avatar large"><%= person.display_name.slice(0,1) %></span><h3><%= person.display_name %></h3><p class="muted small">@<%= person.username %> · <%= person.role %><%= person.deleted_at?' · Removed':'' %></p>
+<% if(!person.deleted_at) { %><a class="text-link" href="/dashboard?section=chores&member=<%= person.id %>">View chores →</a>
+<details class="decision"><summary>Edit account</summary><form class="stack" method="post" action="/admin/users/<%= person.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="action" value="save"><label>Display name<input name="displayName" value="<%= person.display_name %>" maxlength="80" required></label><label>Role<select name="role"><option value="member" <%= person.role==='member'?'selected':'' %>>Member</option><option value="admin" <%= person.role==='admin'?'selected':'' %>>Admin</option></select></label><label>New password (optional)<input type="password" name="password" autocomplete="new-password" minlength="12" placeholder="Leave blank to keep password"></label><p class="form-hint">Saving revokes this account’s existing sessions.</p><button class="button primary">Save account</button></form></details>
+<% if(person.id!==user.id) { %><details class="decision"><summary>Remove account</summary><p class="small">Sign-in access is revoked immediately. Current unfinished chores and future periods become unassigned. Completed and overdue history is preserved. You can restore the account later.</p><form method="post" action="/admin/users/<%= person.id %>" class="stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="action" value="remove"><label>Type <%= person.username %> to confirm<input name="confirmUsername" autocomplete="off" required></label><button class="button subtle">Remove account</button></form></details><% } %>
+<% } else { %><form method="post" action="/admin/users/<%= person.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="action" value="restore"><button class="button subtle">Restore account</button></form><% } %></article><% }) %></div></section>
+<section class="panel form-panel"><div class="panel-heading"><h2>Create an account</h2></div><form class="form-grid" method="post" action="/admin/users"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Display name<input name="displayName" maxlength="80" required autocomplete="off"></label><label>Username<input name="username" pattern="[a-zA-Z0-9_.-]+" maxlength="40" required autocomplete="off"></label><label>Password<input name="password" type="password" minlength="12" required autocomplete="new-password"></label><label>Role<select name="role"><option value="member">Member</option><option value="admin">Admin</option></select></label><p class="form-hint wide">Use at least 12 characters (maximum 72 bytes). Share the password privately. Admins can manage chores and other accounts.</p><button class="button primary">Create account</button></form></section>
 <% } %>
 <footer class="main-footer">
 <span>ChoreQuest<span class="brand-dot">.</span>
