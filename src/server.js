@@ -131,7 +131,7 @@ function createApp({ db = pool, env = process.env } = {}) {
   });
 
   app.get("/profile", requireAuth, (req, res) => res.redirect("/dashboard"));
-  app.get("/admin", requireAdmin, (req, res) => res.redirect("/dashboard"));
+  app.get("/admin", requireAuth, requireAdmin, (req, res) => res.redirect("/dashboard"));
 
   app.get("/dashboard", requireAuth, async (req, res) => {
     const user = req.session.user;
