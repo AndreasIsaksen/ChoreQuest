@@ -1766,3 +1766,7 @@ textarea::placeholder {
   justify-content: flex-end;
   margin-bottom: 26px;
 }
+
+.deletion-panel { border-top: 1px solid #dec8c4; margin-top: 16px; }
+.button.danger { background: #933e35; color: white; }
+.badge.removed { background: #ece9e6; color: #59534e; }

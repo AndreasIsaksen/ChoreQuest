@@ -1,0 +1,7 @@
+<details class="decision deletion-panel"><summary><%= t("Permanently delete member") %></summary>
+<p class="small"><%= t("This cannot be undone. Deletes the account, its points, requests, individual chores and all participation history. Shared chores remain for the other members.") %></p>
+<form method="post" action="/admin/users/<%= person.id %>" class="stack">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="action" value="remove">
+<label><%= t('Type {username} to confirm', {username:person.username}) %><input name="confirmUsername" autocomplete="off" required></label>
+<button class="button danger"><%= t("Permanently delete member") %></button>
+</form></details>

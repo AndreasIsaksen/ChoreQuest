@@ -196,7 +196,7 @@
 <input type="hidden" name="section" value="chores">
 <input type="hidden" name="view" value="<%= view %>">
 <label><%= t("Status") %><select name="status">
-<% for (const [value,label] of [['all','All chores'],['open','To do'],['completed','Completed'],['overdue','Overdue']]) { %>
+<% for (const [value,label] of [['all','All chores'],['open','To do'],['completed','Completed'],['overdue','Overdue'],['removed','Removed']]) { %>
 <option value="<%= value %>" <%= status===value?'selected':'' %>>
 <%= t(label) %>
 </option>
@@ -227,14 +227,14 @@
 <%= t(day) %>
 </div>
 <% }) %>
-<% days.forEach(day=>{ const dayChores=chores.filter(c=>day.inMonth && (c.window_start ? day.key>=c.window_start && day.key<=c.due_date : c.due_date===day.key)); %>
+<% days.forEach(day=>{ const dayChores=chores.filter(c=>day.inMonth && (c.window_start ? day.key>=c.window_start && day.key<=c.calendar_date : c.calendar_date===day.key)); %>
 <div class="calendar-day <%= !day.inMonth?'outside':'' %> <%= day.key===today?'today':'' %>">
 <time datetime="<%= day.key %>">
 <%= day.number %>
 </time>
 <% dayChores.forEach(c=>{ %>
 <a class="calendar-chore <%= c.completed?'done':'' %>" href="#chore-<%= c.id %>" title="<%= c.title %> · <%= c.display_name %>">
-<%= c.title %>
+<%= c.title %><%= c.removed_at ? ' · ' + t('Removed') : '' %>
 </a>
 <% }) %>
 </div>
@@ -262,7 +262,7 @@
 <div class="chore-list">
 <% chores.forEach(c=>{ const late=!c.completed && c.due_date && c.due_date<today; %>
 <article class="chore-row" id="chore-<%= c.id %>">
-<% if(c.member_ids.includes(user.id)) { %>
+<% if(!c.removed_at && c.member_ids.includes(user.id)) { %>
 <form method="post" action="/chores/<%= c.id %>/toggle">
 <input type="hidden" name="completed" value="<%= !c.completed %>">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -303,12 +303,13 @@
 </span>
 <% } %>
 </div>
-<% if(isAdmin && !c.completed) { %><details class="decision"><summary><%= t("Manage assignment") %></summary><form method="post" action="/admin/chores/<%= c.id %>/assign" class="stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<% if(isAdmin && !c.completed && !c.removed_at) { %><details class="decision"><summary><%= t("Manage assignment") %></summary><form method="post" action="/admin/chores/<%= c.id %>/assign" class="stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <%- include('partials/assignees',{people:activeUsers,selected:c.member_ids,multiple:c.cooperative}) %>
 <button class="button subtle"><%= t("Save assignment") %></button><p class="form-hint"><%= t("Changes this task only. Co-op completion is shared by all participants.") %></p></form></details><% } %>
+<% if(isAdmin && !c.removed_at) { %><%- include('partials/delete-chore',{label:'Delete task',title:c.title,action:'/admin/chores/'+c.id+'/delete',explanation:'Deletes this task only. The library chore and future recurring periods remain available.'}) %><% } %>
 </div>
-<span class="badge <%= c.completed?'completed':late?'overdue':'pending' %>">
-<%= t(c.completed?(c.completed_late?'Done late':'Done'):late?'Overdue':c.due_date===today?'Due today':'To do') %>
+<span class="badge <%= c.removed_at?'removed':c.completed?'completed':late?'overdue':'pending' %>">
+<%= t(c.removed_at?'Removed':c.completed?(c.completed_late?'Done late':'Done'):late?'Overdue':c.due_date===today?'Due today':'To do') %>
 </span>
 </article>
 <% }) %>
@@ -457,7 +458,7 @@
 </label>
 <label><%= t("Related chore") %><select name="choreId">
 <option value=""><%= t("General request") %></option>
-<% allChores.filter(c=>c.member_ids.includes(user.id)).forEach(c=>{ %>
+<% allChores.filter(c=>!c.removed_at && c.member_ids.includes(user.id)).forEach(c=>{ %>
 <option value="<%= c.id %>">
 <%= c.title %>
 </option>
@@ -483,8 +484,8 @@
 <% users.forEach(person=>{ %><article class="member-card"><span class="avatar large"><%= person.display_name.slice(0,1) %></span><h3><%= person.display_name %></h3><p class="muted small">@<%= person.username %> · <%= t(person.role) %><%= t(person.deleted_at?' · Removed':'') %></p>
 <% if(!person.deleted_at) { %><a class="text-link" href="/dashboard?section=chores&member=<%= person.id %>"><%= t("View chores →") %></a>
 <p><strong><%= person.weekly_points %></strong> <%= t("weekly ·") %> <strong><%= person.permanent_points %></strong> <%= t("permanent points") %></p><details class="decision"><summary><%= t("Edit account") %></summary><form class="stack" method="post" action="/admin/users/<%= person.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="action" value="save"><label><%= t("Display name") %><input name="displayName" value="<%= person.display_name %>" maxlength="80" required></label><label><%= t("Role") %><select name="role"><option value="member" <%= person.role==='member'?'selected':'' %>><%= t("Member") %></option><option value="admin" <%= person.role==='admin'?'selected':'' %>><%= t("Admin") %></option></select></label><label><%= t("New password (optional)") %><input type="password" name="password" autocomplete="new-password" minlength="12" placeholder="<%= t("Leave blank to keep password") %>"></label><p class="form-hint"><%= t("Saving revokes this account’s existing sessions.") %></p><button class="button primary"><%= t("Save account") %></button></form></details>
-<% if(person.id!==user.id) { %><details class="decision"><summary><%= t("Remove account") %></summary><p class="small"><%= t("Sign-in access is revoked immediately. Current unfinished chores and future periods become unassigned. Completed and overdue history is preserved. You can restore the account later.") %></p><form method="post" action="/admin/users/<%= person.id %>" class="stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="action" value="remove"><label><%= t('Type {username} to confirm', {username:person.username}) %><input name="confirmUsername" autocomplete="off" required></label><button class="button subtle"><%= t("Remove account") %></button></form></details><% } %>
-<% } else { %><form method="post" action="/admin/users/<%= person.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="action" value="restore"><button class="button subtle"><%= t("Restore account") %></button></form><% } %></article><% }) %></div></section>
+<% } %>
+<% if(person.id!==user.id) { %><%- include('partials/delete-member',{person}) %><% } %></article><% }) %></div></section>
 <section class="panel form-panel"><div class="panel-heading"><h2><%= t("Create an account") %></h2></div><form class="form-grid" method="post" action="/admin/users"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label><%= t("Display name") %><input name="displayName" maxlength="80" required autocomplete="off"></label><label><%= t("Username") %><input name="username" pattern="[a-zA-Z0-9_.-]+" maxlength="40" required autocomplete="off"></label><label><%= t("Password") %><input name="password" type="password" minlength="12" required autocomplete="new-password"></label><label><%= t("Role") %><select name="role"><option value="member"><%= t("Member") %></option><option value="admin"><%= t("Admin") %></option></select></label><p class="form-hint wide"><%= t("Use at least 12 characters (maximum 72 bytes). Share the password privately. Admins can manage chores and other accounts.") %></p><button class="button primary"><%= t("Create account") %></button></form></section>
 <% } %>
 <footer class="main-footer">

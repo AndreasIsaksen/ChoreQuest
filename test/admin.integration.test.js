@@ -398,11 +398,26 @@ test(
       400,
     );
     assert.equal(
-      (await post("/admin/chores", { title: "Make dinner", points: "10" }, admin)).status,
+      (
+        await post(
+          "/admin/chores",
+          { title: "Make dinner", points: "10" },
+          admin,
+        )
+      ).status,
       302,
     );
     for (const points of ["-1", "1.5", "1000001", "abc", ""]) {
-      assert.equal((await post("/admin/chores", { title: "Invalid points", points }, admin)).status, 400);
+      assert.equal(
+        (
+          await post(
+            "/admin/chores",
+            { title: "Invalid points", points },
+            admin,
+          )
+        ).status,
+        400,
+      );
     }
     const dinner = (
       await db.query("SELECT * FROM chore_templates WHERE title='Make dinner'")
@@ -427,7 +442,16 @@ test(
     ).rows[0];
     assert.equal(shared.cooperative, true);
     assert.equal(shared.points, 10);
-    assert.equal((await post(`/admin/library/${dinner.id}`, { title: "Tampered", points: 100 }, member)).status, 403);
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${dinner.id}`,
+          { title: "Tampered", points: 100 },
+          member,
+        )
+      ).status,
+      403,
+    );
     assert.equal(
       (
         await db.query("SELECT * FROM chore_members WHERE chore_id=$1", [
@@ -450,7 +474,11 @@ test(
       assert.match(html, /Co-op chore/);
       assert.match(html, /Alex Member, New Member/);
     }
-    const adminLibrary = await (await fetch(base + "/dashboard?section=chores", { headers: { Cookie: admin.cookie } })).text();
+    const adminLibrary = await (
+      await fetch(base + "/dashboard?section=chores", {
+        headers: { Cookie: admin.cookie },
+      })
+    ).text();
     assert.match(adminLibrary, /name="points"/);
     assert.match(adminLibrary, /10 points per member/);
     const outsiderHtml = await (
@@ -462,7 +490,15 @@ test(
         .status,
       403,
     );
-    assert.equal((await db.query("SELECT count(*)::int AS n FROM point_ledger WHERE chore_id=$1", [shared.id])).rows[0].n, 0);
+    assert.equal(
+      (
+        await db.query(
+          "SELECT count(*)::int AS n FROM point_ledger WHERE chore_id=$1",
+          [shared.id],
+        )
+      ).rows[0].n,
+      0,
+    );
     // Two members completing from stale pages must not toggle the shared task back open.
     await Promise.all([
       post(`/chores/${shared.id}/toggle`, { completed: "true" }, member),
@@ -473,7 +509,18 @@ test(
         .rows[0].completed,
       true,
     );
-    assert.deepEqual((await db.query("SELECT user_id,amount FROM point_ledger WHERE chore_id=$1 ORDER BY user_id", [shared.id])).rows, [{user_id:2,amount:10},{user_id:memberId,amount:10}]);
+    assert.deepEqual(
+      (
+        await db.query(
+          "SELECT user_id,amount FROM point_ledger WHERE chore_id=$1 ORDER BY user_id",
+          [shared.id],
+        )
+      ).rows,
+      [
+        { user_id: 2, amount: 10 },
+        { user_id: memberId, amount: 10 },
+      ],
+    );
     assert.equal(
       (
         await post(
@@ -547,20 +594,61 @@ test(
       )
     ).rows;
     assert.equal(coopSeries.points, 20);
-    assert.equal((await db.query("SELECT points FROM chore_templates WHERE id=$1", [dinner.id])).rows[0].points, 20);
-    assert.equal((await db.query("SELECT points FROM chores WHERE id=$1", [shared.id])).rows[0].points, 10);
+    assert.equal(
+      (
+        await db.query("SELECT points FROM chore_templates WHERE id=$1", [
+          dinner.id,
+        ])
+      ).rows[0].points,
+      20,
+    );
+    assert.equal(
+      (await db.query("SELECT points FROM chores WHERE id=$1", [shared.id]))
+        .rows[0].points,
+      10,
+    );
     assert.equal(coopWindows.length, 2);
     assert.ok(coopWindows.every((c) => c.members === 2));
-    assert.equal((await post(`/admin/series/${coopSeries.id}`, {memberIds:[memberId,3],active:'true'}, admin)).status,302);
-    await db.query("SELECT generate_chore_occurrences($1::date+14)",[todayKey()]);
-    const nextGroup = (await db.query('SELECT m.user_id FROM chore_members m JOIN chores c ON c.id=m.chore_id WHERE c.series_id=$1 AND c.window_start=$2::date+14 ORDER BY m.user_id',[coopSeries.id,todayKey()])).rows.map(r=>r.user_id);
-    assert.deepEqual(nextGroup,[3,memberId].sort((a,b)=>a-b));
-    assert.equal((await db.query('SELECT * FROM chore_members WHERE chore_id=$1',[coopWindows[0].id])).rowCount,2);
+    assert.equal(
+      (
+        await post(
+          `/admin/series/${coopSeries.id}`,
+          { memberIds: [memberId, 3], active: "true" },
+          admin,
+        )
+      ).status,
+      302,
+    );
+    await db.query("SELECT generate_chore_occurrences($1::date+14)", [
+      todayKey(),
+    ]);
+    const nextGroup = (
+      await db.query(
+        "SELECT m.user_id FROM chore_members m JOIN chores c ON c.id=m.chore_id WHERE c.series_id=$1 AND c.window_start=$2::date+14 ORDER BY m.user_id",
+        [coopSeries.id, todayKey()],
+      )
+    ).rows.map((r) => r.user_id);
+    assert.deepEqual(
+      nextGroup,
+      [3, memberId].sort((a, b) => a - b),
+    );
+    assert.equal(
+      (
+        await db.query("SELECT * FROM chore_members WHERE chore_id=$1", [
+          coopWindows[0].id,
+        ])
+      ).rowCount,
+      2,
+    );
     assert.equal(
       (
         await post(
           `/admin/library/${dinner.id}`,
-          { title: "Make a meal", description: "Updated definition", points: "30" },
+          {
+            title: "Make a meal",
+            description: "Updated definition",
+            points: "30",
+          },
           admin,
         )
       ).status,
@@ -649,31 +737,37 @@ test(
       (await login("new.member", "replacement-password-only")).status,
       401,
     );
+    for (const [table, column] of [
+      ["users", "id"],
+      ["chores", "user_id"],
+      ["chore_series", "user_id"],
+      ["chore_participants", "user_id"],
+      ["series_participants", "user_id"],
+      ["point_accounts", "user_id"],
+      ["point_ledger", "user_id"],
+      ["chore_requests", "user_id"],
+    ]) {
+      assert.equal(
+        (
+          await db.query(`SELECT * FROM ${table} WHERE ${column}=$1`, [
+            memberId,
+          ])
+        ).rowCount,
+        0,
+      );
+    }
     assert.equal(
-      (
-        await db.query(
-          "SELECT * FROM chore_participants WHERE chore_id=$1 AND user_id=$2",
-          [shared.id, memberId],
-        )
-      ).rowCount,
+      (await db.query("SELECT * FROM chores WHERE id=$1", [shared.id]))
+        .rowCount,
       1,
     );
     assert.equal(
-      (
-        await db.query(
-          "SELECT * FROM series_participants WHERE series_id=$1 AND user_id=$2",
-          [coopSeries.id, memberId],
-        )
-      ).rowCount,
+      (await db.query("SELECT * FROM chores WHERE id=$1", [chore.id])).rowCount,
       0,
     );
     assert.equal(
-      (
-        await db.query(
-          "SELECT * FROM chore_participants p JOIN chores c ON c.id=p.chore_id WHERE c.series_id=$1 AND p.user_id=$2",
-          [coopSeries.id, memberId],
-        )
-      ).rowCount,
+      (await db.query("SELECT * FROM chore_series WHERE id=$1", [series.id]))
+        .rowCount,
       0,
     );
     r = await fetch(base + "/dashboard", {
@@ -682,24 +776,10 @@ test(
     });
     assert.equal(r.headers.get("location"), "/login");
     assert.equal(
-      (
-        await db.query("SELECT user_id FROM chore_series WHERE id=$1", [
-          series.id,
-        ])
-      ).rows[0].user_id,
-      null,
-    );
-    assert.equal(
-      (await db.query("SELECT user_id FROM chores WHERE id=$1", [chore.id]))
-        .rows[0].user_id,
-      memberId,
-    );
-    assert.equal(
       (await post(`/admin/users/${memberId}`, { action: "restore" }, admin))
         .status,
-      302,
+      404,
     );
-    assert.ok((await login("new.member", "replacement-password-only")).cookie);
     for (const section of ["chores", "household", "requests"]) {
       r = await fetch(base + "/dashboard?section=" + section, {
         headers: { Cookie: admin.cookie },

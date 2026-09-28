@@ -1,0 +1,10 @@
+<details class="decision deletion-panel">
+<summary><%= t(label) %></summary>
+<p class="small"><%= t(explanation) %></p>
+<p class="small"><%= t("Completed and overdue tasks remain in calendars marked Removed. Points are kept. Other tasks disappear from members’ feeds.") %></p>
+<form method="post" action="<%= action %>" class="stack">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label><%= t('Type {title} to confirm deletion', {title}) %><input name="confirmTitle" autocomplete="off" required></label>
+<button class="button danger"><%= t(label) %></button>
+</form>
+</details>

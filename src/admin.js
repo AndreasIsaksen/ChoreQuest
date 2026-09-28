@@ -12,7 +12,11 @@ function text(value, label, max = 160) {
 }
 function points(value) {
   if (value === undefined) return 0;
-  if (!/^\d+$/.test(String(value)) || !Number.isSafeInteger(Number(value)) || Number(value) > 1000000)
+  if (
+    !/^\d+$/.test(String(value)) ||
+    !Number.isSafeInteger(Number(value)) ||
+    Number(value) > 1000000
+  )
     problem("Points must be a whole number between 0 and 1,000,000.");
   return Number(value);
 }
@@ -166,6 +170,59 @@ function installAdmin(app, db, requireAdmin) {
     req.session.flash = message;
     res.redirect("/dashboard?section=" + section);
   };
+  // Removal keeps occurrence rows so cancelled recurring windows are never regenerated.
+  for (const [route, table, scope] of [
+    ["library", "chore_templates", "template_id"],
+    ["series", "chore_series", "series_id"],
+    ["chores", "chores", "id"],
+  ]) {
+    app.post(`/admin/${route}/:id/delete`, requireAdmin, async (req, res) => {
+      await transaction(db, async (c) => {
+        const target = id(req.params.id);
+        const item = (
+          await c.query(
+            `SELECT * FROM ${table} WHERE id=$1 AND removed_at IS NULL FOR UPDATE`,
+            [target],
+          )
+        ).rows[0];
+        if (!item) problem("Chore not found.", 404);
+        if (req.body.confirmTitle !== item.title)
+          problem("Type the chore name to confirm deletion.");
+        await c.query("SELECT generate_chore_occurrences($1::date)", [
+          todayKey(),
+        ]);
+        await c.query("SELECT process_points($1::date)", [todayKey()]);
+        if (route === "library") {
+          await c.query(
+            "UPDATE chore_templates SET removed_at=now() WHERE id=$1",
+            [target],
+          );
+          await c.query(
+            "UPDATE chore_series SET active=false,removed_at=now() WHERE template_id=$1 AND removed_at IS NULL",
+            [target],
+          );
+        } else if (route === "series") {
+          await c.query(
+            "UPDATE chore_series SET active=false,removed_at=now() WHERE id=$1",
+            [target],
+          );
+        }
+        await c.query(
+          `UPDATE chores SET removed_at=now(),removed_history=(completed OR COALESCE(due_date<$2::date,false)) WHERE ${scope}=$1 AND removed_at IS NULL`,
+          [target, todayKey()],
+        );
+        await c.query(
+          `UPDATE chore_requests SET status='rejected',admin_note='Chore removed.' WHERE status='pending' AND chore_id IN (SELECT id FROM chores WHERE ${scope}=$1 AND removed_at IS NOT NULL)`,
+          [target],
+        );
+      });
+      redirect(
+        req,
+        res,
+        "Chore removed. Completed and overdue history and points have been preserved.",
+      );
+    });
+  }
   app.post("/admin/chores", requireAdmin, async (req, res) => {
     const b = req.body;
     const title = text(b.title, "Title");
@@ -193,14 +250,18 @@ function installAdmin(app, db, requireAdmin) {
     await transaction(db, async (c) => {
       await c.query("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE");
       const template = (
-        await c.query("SELECT * FROM chore_templates WHERE id=$1 FOR SHARE", [
-          id(req.params.id),
-        ])
+        await c.query(
+          "SELECT * FROM chore_templates WHERE id=$1 AND removed_at IS NULL FOR UPDATE",
+          [id(req.params.id)],
+        )
       ).rows[0];
       if (!template) problem("Chore not found.", 404);
       if (req.body.points !== undefined) {
         template.points = points(req.body.points);
-        await c.query("UPDATE chore_templates SET points=$1 WHERE id=$2", [template.points, template.id]);
+        await c.query("UPDATE chore_templates SET points=$1 WHERE id=$2", [
+          template.points,
+          template.id,
+        ]);
       }
       await assignChore(c, template, req.body);
     });
@@ -218,7 +279,7 @@ function installAdmin(app, db, requireAdmin) {
         : "";
     if (description.length > 2000) problem("Description is too long.");
     const r = await db.query(
-      "UPDATE chore_templates SET title=$1,description=$2,points=$4 WHERE id=$3 RETURNING id",
+      "UPDATE chore_templates SET title=$1,description=$2,points=$4 WHERE id=$3 AND removed_at IS NULL RETURNING id",
       [title, description, id(req.params.id), points(req.body.points)],
     );
     if (!r.rowCount) problem("Chore not found.", 404);
@@ -236,7 +297,7 @@ function installAdmin(app, db, requireAdmin) {
           id(req.params.id),
         ])
       ).rows[0];
-      if (!chore || chore.completed)
+      if (!chore || chore.completed || chore.removed_at)
         problem("Chore not found or already completed.", 409);
       const members = await participants(c, req.body);
       if (!chore.cooperative && members.length > 1)
@@ -270,7 +331,7 @@ function installAdmin(app, db, requireAdmin) {
           id(req.params.id),
         ])
       ).rows[0];
-      if (!schedule) problem("Schedule not found.", 404);
+      if (!schedule || schedule.removed_at) problem("Schedule not found.", 404);
       const members = await participants(c, req.body);
       if (!schedule.cooperative && members.length > 1)
         problem("Choose one member for an individual schedule.");
@@ -337,28 +398,35 @@ function installAdmin(app, db, requireAdmin) {
           problem("You cannot remove your own account.");
         if (req.body.confirmUsername !== account.username)
           problem("Type the username to confirm removal.");
+        const sharedChores = (
+          await c.query(
+            "SELECT chore_id FROM chore_participants WHERE user_id=$1",
+            [target],
+          )
+        ).rows.map((r) => r.chore_id);
+        const sharedSeries = (
+          await c.query(
+            "SELECT series_id FROM series_participants WHERE user_id=$1",
+            [target],
+          )
+        ).rows.map((r) => r.series_id);
         await c.query(
-          "UPDATE users SET deleted_at=now(), session_version=session_version+1 WHERE id=$1",
+          "DELETE FROM chore_requests WHERE user_id=$1 OR chore_id IN (SELECT id FROM chores WHERE user_id=$1)",
           [target],
         );
-        await c.query("UPDATE chore_series SET user_id=NULL WHERE user_id=$1", [
-          target,
-        ]);
-        await c.query("DELETE FROM series_participants WHERE user_id=$1", [
-          target,
-        ]);
+        // Foreign keys remove owned tasks, schedules, memberships, points and account data.
+        await c.query("DELETE FROM users WHERE id=$1", [target]);
         await c.query(
-          "DELETE FROM chore_participants WHERE user_id=$1 AND chore_id IN (SELECT id FROM chores WHERE NOT completed AND (due_date IS NULL OR due_date >= $2))",
-          [target, todayKey()],
+          "DELETE FROM chore_requests WHERE chore_id IN (SELECT c.id FROM chores c WHERE c.id=ANY($1::int[]) AND NOT EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=c.id))",
+          [sharedChores],
         );
         await c.query(
-          "UPDATE chores SET user_id=NULL WHERE user_id=$1 AND NOT completed AND (due_date IS NULL OR due_date >= $2)",
-          [target, todayKey()],
+          "DELETE FROM chores c WHERE c.id=ANY($1::int[]) AND NOT EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=c.id)",
+          [sharedChores],
         );
-      } else if (action === "restore") {
         await c.query(
-          "UPDATE users SET deleted_at=NULL, session_version=session_version+1 WHERE id=$1",
-          [target],
+          "DELETE FROM chore_series s WHERE s.id=ANY($1::int[]) AND NOT EXISTS (SELECT 1 FROM series_members m WHERE m.series_id=s.id)",
+          [sharedSeries],
         );
       } else if (action === "save") {
         const display = text(req.body.displayName, "Display name", 80);
@@ -383,7 +451,9 @@ function installAdmin(app, db, requireAdmin) {
     redirect(
       req,
       res,
-      "Account updated. Existing sessions for that account have been revoked.",
+      action === "remove"
+        ? "Account and its history permanently deleted."
+        : "Account updated. Existing sessions for that account have been revoked.",
       "household",
     );
   });

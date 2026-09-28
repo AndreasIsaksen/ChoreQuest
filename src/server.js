@@ -51,7 +51,10 @@ function createApp({ db = pool, env = process.env } = {}) {
       limit: 250,
       standardHeaders: true,
       legacyHeaders: false,
-      handler: (req, res) => res.status(429).send(res.locals.t("Too many requests, please try again later.")),
+      handler: (req, res) =>
+        res
+          .status(429)
+          .send(res.locals.t("Too many requests, please try again later.")),
     }),
   );
   app.use(
@@ -206,21 +209,25 @@ function createApp({ db = pool, env = process.env } = {}) {
         /^\d+$/.test(req.query.member || ""))
         ? req.query.member
         : "";
-    const status = ["open", "completed", "overdue"].includes(req.query.status)
+    const status = ["open", "completed", "overdue", "removed"].includes(
+      req.query.status,
+    )
       ? req.query.status
       : "all";
     const view = req.query.view === "calendar" ? "calendar" : "list";
     await transaction(db, async (c) => {
-      await c.query("SELECT generate_chore_occurrences($1::date)", [todayKey()]);
+      await c.query("SELECT generate_chore_occurrences($1::date)", [
+        todayKey(),
+      ]);
       await c.query("SELECT process_points($1::date)", [todayKey()]);
     });
     const choresResult = await db.query(
       `SELECT c.id, c.user_id, c.title, c.description, to_char(c.due_date, 'YYYY-MM-DD') AS due_date,
-       c.points, c.completed, (c.completed AND (c.completed_at AT TIME ZONE 'Europe/Oslo')::date > c.due_date) AS completed_late, c.series_id, c.cooperative, c.template_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at,
+       c.points, c.removed_at, c.completed, to_char(COALESCE(c.due_date, (c.completed_at AT TIME ZONE 'Europe/Oslo')::date, CASE WHEN c.completed THEN (c.created_at AT TIME ZONE 'Europe/Oslo')::date END), 'YYYY-MM-DD') AS calendar_date, (c.completed AND (c.completed_at AT TIME ZONE 'Europe/Oslo')::date > c.due_date) AS completed_late, c.series_id, c.cooperative, c.template_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at,
        COALESCE((SELECT string_agg(u.display_name, ', ' ORDER BY u.display_name) FROM chore_members m JOIN users u ON u.id=m.user_id WHERE m.chore_id=c.id),'Unassigned') AS display_name,
        ARRAY(SELECT m.user_id FROM chore_members m WHERE m.chore_id=c.id) AS member_ids
        FROM chores c
-       ${isAdmin ? "" : "WHERE EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=c.id AND m.user_id=$1)"} ORDER BY c.due_date, c.id`,
+       WHERE (c.removed_at IS NULL OR c.removed_history) ${isAdmin ? "" : "AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=c.id AND m.user_id=$1)"} ORDER BY c.due_date, c.id`,
       isAdmin ? [] : [user.id],
     );
     const requestsResult = await db.query(
@@ -239,22 +246,26 @@ function createApp({ db = pool, env = process.env } = {}) {
     const series = isAdmin
       ? (
           await db.query(
-            "SELECT s.*, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on, ARRAY(SELECT m.user_id FROM series_members m WHERE m.series_id=s.id) AS member_ids FROM chore_series s ORDER BY s.id DESC",
+            "SELECT s.*, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on, ARRAY(SELECT m.user_id FROM series_members m WHERE m.series_id=s.id) AS member_ids FROM chore_series s WHERE s.removed_at IS NULL ORDER BY s.id DESC",
           )
         ).rows
       : [];
     const library = isAdmin
       ? (
           await db.query(
-            "SELECT * FROM chore_templates ORDER BY lower(title),id",
+            "SELECT * FROM chore_templates WHERE removed_at IS NULL ORDER BY lower(title),id",
           )
         ).rows
       : [];
-    const pointBalance = (await db.query("SELECT * FROM member_points WHERE user_id=$1", [user.id])).rows[0] || { weekly_points: 0, permanent_points: 0 };
+    const pointBalance = (
+      await db.query("SELECT * FROM member_points WHERE user_id=$1", [user.id])
+    ).rows[0] || { weekly_points: 0, permanent_points: 0 };
     const activeUsers = users.filter((u) => !u.deleted_at);
     const allChores = choresResult.rows.map((c) => ({
       ...c,
-      display_name: c.member_ids.length ? c.display_name : res.locals.t("Unassigned"),
+      display_name: c.member_ids.length
+        ? c.display_name
+        : res.locals.t("Unassigned"),
       due_date: c.due_date ? dateKey(c.due_date) : null,
     }));
     const scoped = allChores.filter(
@@ -266,10 +277,11 @@ function createApp({ db = pool, env = process.env } = {}) {
     );
     const today = todayKey();
     const stats = {
-      total: scoped.length,
-      completed: scoped.filter((c) => c.completed).length,
+      total: scoped.filter((c) => !c.removed_at).length,
+      completed: scoped.filter((c) => !c.removed_at && c.completed).length,
       overdue: scoped.filter(
-        (c) => !c.completed && c.due_date && c.due_date < today,
+        (c) =>
+          !c.removed_at && !c.completed && c.due_date && c.due_date < today,
       ).length,
       pending: requestsResult.rows.filter((r) => r.status === "pending").length,
     };
@@ -279,16 +291,20 @@ function createApp({ db = pool, env = process.env } = {}) {
     const chores = scoped.filter(
       (c) =>
         (view !== "calendar" ||
-          (c.due_date &&
+          (c.calendar_date &&
             (c.window_start
               ? c.window_start <= monthEnd &&
-                c.due_date >= selectedMonth + "-01"
-              : c.due_date.startsWith(selectedMonth)))) &&
+                c.calendar_date >= selectedMonth + "-01"
+              : c.calendar_date.startsWith(selectedMonth)))) &&
         (status === "all" ||
-          (status === "completed"
-            ? c.completed
-            : !c.completed &&
-              (status !== "overdue" || (c.due_date && c.due_date < today)))),
+          (status === "removed"
+            ? !!c.removed_at
+            : !c.removed_at &&
+              (status === "completed"
+                ? c.completed
+                : !c.completed &&
+                  (status !== "overdue" ||
+                    (c.due_date && c.due_date < today))))),
     );
     const flash = req.session.flash;
     delete req.session.flash;
@@ -326,10 +342,12 @@ function createApp({ db = pool, env = process.env } = {}) {
       req.body.completed !== undefined
     )
       problem("Invalid completion state.");
-    const result = await transaction(db, (c) => c.query(
-      "UPDATE chores SET completed = COALESCE($3::boolean, NOT completed), completed_at=CASE WHEN COALESCE($3::boolean, NOT completed) THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id = $1 AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2) AND (window_start IS NULL OR window_start <= (now() AT TIME ZONE 'Europe/Oslo')::date) RETURNING id",
-      [req.params.id, req.session.user.id, req.body.completed ?? null],
-    ));
+    const result = await transaction(db, (c) =>
+      c.query(
+        "UPDATE chores SET completed = COALESCE($3::boolean, NOT completed), completed_at=CASE WHEN COALESCE($3::boolean, NOT completed) THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id = $1 AND removed_at IS NULL AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2) AND (window_start IS NULL OR window_start <= (now() AT TIME ZONE 'Europe/Oslo')::date) RETURNING id",
+        [req.params.id, req.session.user.id, req.body.completed ?? null],
+      ),
+    );
     if (!result.rowCount)
       problem("This chore is not assigned to you or has not started yet.", 403);
     req.session.flash = "Your change has been saved.";
@@ -343,16 +361,20 @@ function createApp({ db = pool, env = process.env } = {}) {
       typeof details !== "string" ||
       !details.trim()
     )
-      return res.status(400).send(res.locals.t("Please describe your request."));
+      return res
+        .status(400)
+        .send(res.locals.t("Please describe your request."));
     if (choreId) {
       const owned = await db.query(
-        "SELECT id FROM chores WHERE id = $1 AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2)",
+        "SELECT id FROM chores WHERE id = $1 AND removed_at IS NULL AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2)",
         [choreId, req.session.user.id],
       );
       if (!owned.rows.length)
         return res
           .status(403)
-          .send(res.locals.t("You can only request changes to your own chores."));
+          .send(
+            res.locals.t("You can only request changes to your own chores."),
+          );
     }
     await db.query(
       `INSERT INTO chore_requests (user_id, chore_id, request_type, details, proposed_due_date)
@@ -384,22 +406,25 @@ function createApp({ db = pool, env = process.env } = {}) {
         ])
       ).rows[0];
       if (!request) problem("Request not found.", 404);
-      if (status === "approved" && due && request.chore_id) {
+      if (status === "approved" && request.chore_id) {
         const chore = (
           await c.query("SELECT * FROM chores WHERE id=$1 FOR UPDATE", [
             request.chore_id,
           ])
         ).rows[0];
-        if (chore?.series_id)
+        if (chore?.removed_at)
+          problem("Removed chores cannot be changed.", 409);
+        if (due && chore?.series_id)
           problem(
             "Recurring chores follow their completion windows. A request cannot change a recurring deadline.",
           );
-        if (chore?.window_start && due < dateKey(chore.window_start))
+        if (due && chore?.window_start && due < dateKey(chore.window_start))
           problem("The due date must be on or after the start date.");
-        await c.query("UPDATE chores SET due_date=$1 WHERE id=$2", [
-          due,
-          request.chore_id,
-        ]);
+        if (due)
+          await c.query("UPDATE chores SET due_date=$1 WHERE id=$2", [
+            due,
+            request.chore_id,
+          ]);
       }
       await c.query(
         "UPDATE chore_requests SET status=$1,admin_note=$2 WHERE id=$3",
@@ -430,10 +455,13 @@ function createApp({ db = pool, env = process.env } = {}) {
 if (require.main === module) {
   (async () => {
     await migrate(pool);
-    const maintain = () => transaction(pool, async (c) => {
-      await c.query("SELECT generate_chore_occurrences($1::date)", [todayKey()]);
-      await c.query("SELECT process_points($1::date)", [todayKey()]);
-    });
+    const maintain = () =>
+      transaction(pool, async (c) => {
+        await c.query("SELECT generate_chore_occurrences($1::date)", [
+          todayKey(),
+        ]);
+        await c.query("SELECT process_points($1::date)", [todayKey()]);
+      });
     await maintain();
     const timer = setInterval(() => maintain().catch(console.error), 60000);
     timer.unref();

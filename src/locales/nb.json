@@ -292,5 +292,21 @@
   "month": "måned",
   "months": "måneder",
   "Too many requests, please try again later.": "For mange forespørsler. Prøv igjen senere.",
-  "Every {count} {unit}": "Hver {count}. {unit}"
+  "Every {count} {unit}": "Hver {count}. {unit}",
+  "Removed": "Fjernet",
+  "Delete task": "Slett oppgave",
+  "Delete library chore": "Slett oppgave fra biblioteket",
+  "Delete schedule": "Slett gjentakelse",
+  "Deletes this task only. The library chore and future recurring periods remain available.": "Sletter bare denne oppgaven. Bibliotekoppgaven og fremtidige perioder beholdes.",
+  "Deletes this saved chore and all its assignments, and stops all its recurring schedules.": "Sletter denne bibliotekoppgaven og alle tildelingene, og stopper alle gjentakelsene.",
+  "Stops this recurring schedule and removes its tasks. The library chore remains available.": "Stopper denne gjentakelsen og fjerner oppgavene. Bibliotekoppgaven beholdes.",
+  "Completed and overdue tasks remain in calendars marked Removed. Points are kept. Other tasks disappear from members’ feeds.": "Fullførte og forfalte oppgaver beholdes i kalenderne merket Fjernet. Poengene beholdes. Andre oppgaver forsvinner fra medlemmenes oversikter.",
+  "Type {title} to confirm deletion": "Skriv {title} for å bekrefte sletting",
+  "Permanently delete member": "Slett medlem permanent",
+  "This cannot be undone. Deletes the account, its points, requests, individual chores and all participation history. Shared chores remain for the other members.": "Dette kan ikke angres. Kontoen, poengene, forespørslene, individuelle oppgaver og all deltakelseshistorikk slettes. Fellesoppgaver beholdes for de andre medlemmene.",
+  "Type the chore name to confirm deletion.": "Skriv oppgavenavnet for å bekrefte sletting.",
+  "Chore removed. Completed and overdue history and points have been preserved.": "Oppgaven er fjernet. Fullført og forfalt historikk og poeng er bevart.",
+  "Account and its history permanently deleted.": "Kontoen og historikken er slettet permanent.",
+  "Removed chores cannot be changed.": "Fjernede oppgaver kan ikke endres.",
+  "Chore removed.": "Oppgaven er fjernet."
 }
