@@ -12,9 +12,20 @@ for (const selector of document.querySelectorAll("[data-schedule]")) {
     const recurring = selector.value === "recurring";
     form.querySelector("[data-recurring]").hidden = !recurring;
     form.querySelector("[data-once]").hidden = recurring;
-    form.querySelector("[name=\"dueDate\"]").disabled = recurring;
-    for (const input of form.querySelectorAll("[data-recurring] input, [data-recurring] select")) input.disabled = !recurring;
+    form.querySelector('[name="dueDate"]').disabled = recurring;
+    for (const input of form.querySelectorAll(
+      "[data-recurring] input, [data-recurring] select",
+    ))
+      input.disabled = !recurring;
     form.querySelector('[name="startsOn"]').required = recurring;
+    form.querySelector('[name="startsOn"]').min = recurring
+      ? new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Europe/Oslo",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date())
+      : "";
     form.querySelector('[name="intervalCount"]').required = recurring;
   }
   selector.addEventListener("change", syncSchedule);

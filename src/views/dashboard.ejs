@@ -129,6 +129,7 @@
 </div>
 <% } %>
 <% if (['overview','chores'].includes(section)) { %>
+<% if(isAdmin) { %><nav class="chore-shortcuts" aria-label="Chore administration"><a class="button subtle" href="#chore-library">Chore library</a><a class="button subtle" href="#household-plan">Household plan</a><a class="button subtle" href="#new-chore">Create chore</a></nav><% } %>
 <div class="stats">
 <div class="stat">
 <span class="stat-icon sage">
@@ -170,7 +171,7 @@
 </div>
 </div>
 <div class="content-grid">
-<section class="panel chore-panel">
+<section class="panel chore-panel" id="household-plan">
 <div class="panel-heading">
 <div>
 <span class="eyebrow">
@@ -257,12 +258,13 @@
 </div>
 <% } %>
 <div class="chore-list">
-<% chores.forEach(c=>{ const late=!c.completed && c.due_date<today; %>
+<% chores.forEach(c=>{ const late=!c.completed && c.due_date && c.due_date<today; %>
 <article class="chore-row" id="chore-<%= c.id %>">
-<% if(c.user_id===user.id) { %>
+<% if(c.member_ids.includes(user.id)) { %>
 <form method="post" action="/chores/<%= c.id %>/toggle">
+<input type="hidden" name="completed" value="<%= !c.completed %>">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-<button class="complete-button <%= c.completed?'checked':'' %>" aria-label="<%= c.completed?'Reopen':'Complete' %> <%= c.title %>" title="<%= c.completed?'Reopen chore':'Mark complete' %>">
+<button <%= c.window_start && c.window_start>today ? 'disabled' : '' %> class="complete-button <%= c.completed?'checked':'' %>" aria-label="<%= c.completed?'Reopen':'Complete' %> <%= c.title %>" title="<%= c.completed?'Reopen chore':'Mark complete' %>">
 <% if(c.completed) { %>
 <%- include('partials/icon',{name:'check'}) %>
 <% } %>
@@ -284,12 +286,13 @@
 <%= c.description %>
 </p>
 <% } %>
+<% if(c.cooperative) { %><p class="coop-label">Co-op chore · Shared completion</p><% } %>
 <div class="chore-meta">
 <span>
 <%- include('partials/icon',{name:'calendar'}) %>
 <%= c.window_start ? formatDate(c.window_start) + ' – ' : '' %><%= c.due_date ? formatDate(c.due_date) : 'No deadline' %><%= c.series_id ? ' · Once per period' : '' %>
 </span>
-<% if(isAdmin) { %>
+<% if(isAdmin || c.cooperative) { %>
 <span class="person-chip">
 <span class="tiny-avatar">
 <%= c.display_name.slice(0,1) %>
@@ -298,7 +301,9 @@
 </span>
 <% } %>
 </div>
-<% if(isAdmin && !c.completed) { %><details class="decision"><summary>Manage assignment</summary><form method="post" action="/admin/chores/<%= c.id %>/assign" class="stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Assigned to<select name="userId"><option value="">Unassigned</option><% activeUsers.forEach(p=>{ %><option value="<%= p.id %>" <%= p.id===c.user_id?'selected':'' %>><%= p.display_name %></option><% }) %></select></label><button class="button subtle">Save assignment</button><p class="form-hint">Changes this occurrence only. Use recurring schedules to change future periods.</p></form></details><% } %>
+<% if(isAdmin && !c.completed) { %><details class="decision"><summary>Manage assignment</summary><form method="post" action="/admin/chores/<%= c.id %>/assign" class="stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<%- include('partials/assignees',{people:activeUsers,selected:c.member_ids,multiple:c.cooperative}) %>
+<button class="button subtle">Save assignment</button><p class="form-hint">Changes this task only. Co-op completion is shared by all participants.</p></form></details><% } %>
 </div>
 <span class="badge <%= c.completed?'completed':late?'overdue':'pending' %>">
 <%= c.completed?(c.completed_late?'Done late':'Done'):late?'Overdue':c.due_date===today?'Due today':'To do' %>
@@ -342,47 +347,7 @@
 </aside>
 </div>
 <% if(isAdmin) { %>
-<details class="panel form-panel" id="new-chore">
-<summary>
-<span>
-<span class="eyebrow">ADMIN TOOLS</span>
-<strong>Create a new chore</strong>
-</span>
-<span class="summary-plus">+</span>
-</summary>
-<form method="post" action="/admin/chores" class="form-grid">
-<input type="hidden" name="_csrf" value="<%= csrfToken %>">
-<label>What needs doing?<input name="title" placeholder="e.g. Give the kitchen a fresh start" maxlength="160" required>
-</label>
-<label>Assign to<select name="userId">
-<option value="">Unassigned — decide later</option>
-<% activeUsers.forEach(person=>{ %>
-<option value="<%= person.id %>">
-<%= person.display_name %>
-<%= person.role==='admin'?' (admin)':'' %>
-</option>
-<% }) %>
-</select>
-</label>
-<label>Schedule<select name="schedule" data-schedule><option value="once">One-off chore</option><option value="recurring">Recurring completion window</option></select></label>
-<label data-once>Due date (optional)<input type="date" name="dueDate"></label>
-<div class="wide form-grid recurrence-fields" data-recurring hidden>
-<label>First window starts<input type="date" name="startsOn" value="<%= today %>" min="<%= today %>"></label>
-<label>Repeat every<input type="number" name="intervalCount" min="1" max="365" value="1"></label>
-<label>Period<select name="intervalUnit"><option value="days">Days</option><option value="weeks" selected>Weeks</option><option value="months">Months</option></select></label>
-<p class="form-hint wide">Complete once at any time within each window. For example, every 2 weeks starting Monday gives you until the second Sunday. Each period keeps its own completion record.</p>
-</div>
-<label class="wide">A little more detail <span class="optional">(optional)</span>
-<textarea name="description" rows="3" placeholder="What does a job well done look like?" maxlength="2000">
-</textarea>
-</label>
-<div class="form-footer wide">
-<p>Everyone sees their own chores. Admins can see the whole plan.</p>
-<button class="button primary">Create chore <%- include('partials/icon',{name:'arrow'}) %>
-</button>
-</div>
-</form>
-</details><section class="panel form-panel"><div class="panel-heading"><h2>Recurring schedules</h2></div><% if(!series.length) { %><p class="padded muted">No recurring schedules yet. Choose a recurring completion window when creating a chore.</p><% } %><% series.forEach(item=>{ %><details class="decision padded"><summary><%= item.title %> · Every <%= item.interval_count %> <%= item.interval_count===1?item.interval_unit.slice(0,-1):item.interval_unit %> · <%= item.active?'Active':'Paused' %></summary><p class="small muted">Starts <%= formatDate(item.starts_on) %>. Each period is generated when it begins. Previous completions stay in the agenda.</p><form class="form-grid" method="post" action="/admin/series/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Assign future periods to<select name="userId"><option value="">Unassigned</option><% activeUsers.forEach(p=>{ %><option value="<%= p.id %>" <%= p.id===item.user_id?'selected':'' %>><%= p.display_name %></option><% }) %></select></label><label>Schedule state<select name="active"><option value="true" <%= item.active?'selected':'' %>>Active</option><option value="false" <%= !item.active?'selected':'' %>>Paused</option></select></label><p class="form-hint wide">Pausing stops new periods from being generated. Resuming creates any missed periods; existing chores are never removed.</p><button class="button subtle">Save schedule</button></form></details><% }) %></section>
+<%- include('partials/chore-library') %>
 <% } %>
 <% } %>
 <% if(section==='requests') { %>
@@ -490,7 +455,7 @@
 </label>
 <label>Related chore<select name="choreId">
 <option value="">General request</option>
-<% allChores.filter(c=>c.user_id===user.id).forEach(c=>{ %>
+<% allChores.filter(c=>c.member_ids.includes(user.id)).forEach(c=>{ %>
 <option value="<%= c.id %>">
 <%= c.title %>
 </option>

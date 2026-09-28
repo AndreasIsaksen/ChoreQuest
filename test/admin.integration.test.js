@@ -14,8 +14,19 @@ test(
     const db = new Pool({ connectionString: process.env.TEST_DATABASE_URL });
     t.after(() => db.end());
     await db.query(fs.readFileSync("db/init.sql", "utf8"));
+    await db.query(
+      "INSERT INTO chores(user_id,title,due_date,completed) VALUES(2,'Existing chore','2026-01-01',true)",
+    );
     await migrate(db);
     await migrate(db);
+    assert.equal(
+      (
+        await db.query(
+          "SELECT c.completed,t.title FROM chores c JOIN chore_templates t ON t.id=c.template_id WHERE c.title='Existing chore'",
+        )
+      ).rows[0].completed,
+      true,
+    );
     const password = "integration-password-only";
     await db.query("UPDATE users SET password_hash=$1 WHERE username='admin'", [
       await bcrypt.hash(password, 4),
@@ -57,6 +68,10 @@ test(
       return { cookie, token };
     }
     async function post(path, body, auth) {
+      const form = new URLSearchParams({ _csrf: auth.token });
+      for (const [key, value] of Object.entries(body))
+        for (const entry of Array.isArray(value) ? value : [value])
+          form.append(key, entry);
       const r = await fetch(base + path, {
         method: "POST",
         redirect: "manual",
@@ -64,7 +79,7 @@ test(
           Cookie: auth.cookie,
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: new URLSearchParams({ ...body, _csrf: auth.token }),
+        body: form,
       });
       return r;
     }
@@ -246,6 +261,323 @@ test(
       ).status,
       400,
     );
+    // Definitions survive repeated assignments, and never create a task by themselves.
+    assert.equal(
+      (
+        await post(
+          "/admin/chores",
+          { title: "Reusable laundry", description: "Own clothes" },
+          admin,
+        )
+      ).status,
+      302,
+    );
+    const laundry = (
+      await db.query(
+        "SELECT * FROM chore_templates WHERE title='Reusable laundry'",
+      )
+    ).rows[0];
+    assert.equal(
+      (
+        await db.query("SELECT * FROM chores WHERE template_id=$1", [
+          laundry.id,
+        ])
+      ).rowCount,
+      0,
+    );
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${laundry.id}/assign`,
+          { memberIds: [memberId, 2], mode: "individual", schedule: "once" },
+          member,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${laundry.id}/assign`,
+          { memberIds: [memberId, 2], mode: "individual", schedule: "once" },
+          admin,
+        )
+      ).status,
+      302,
+    );
+    let tasks = (
+      await db.query(
+        "SELECT * FROM chores WHERE template_id=$1 ORDER BY user_id",
+        [laundry.id],
+      )
+    ).rows;
+    assert.equal(tasks.length, 2);
+    const mine = tasks.find((c) => c.user_id === memberId);
+    const other = tasks.find((c) => c.user_id === 2);
+    assert.equal(
+      (await post(`/chores/${mine.id}/toggle`, { completed: "true" }, member))
+        .status,
+      302,
+    );
+    assert.equal(
+      (await db.query("SELECT completed FROM chores WHERE id=$1", [other.id]))
+        .rows[0].completed,
+      false,
+    );
+    assert.equal(
+      (await post(`/chores/${other.id}/toggle`, { completed: "true" }, member))
+        .status,
+      403,
+    );
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${laundry.id}/assign`,
+          { memberIds: [memberId], mode: "individual", schedule: "once" },
+          admin,
+        )
+      ).status,
+      302,
+    );
+    assert.equal(
+      (
+        await db.query("SELECT * FROM chore_templates WHERE id=$1", [
+          laundry.id,
+        ])
+      ).rowCount,
+      1,
+    );
+    assert.equal(
+      (
+        await db.query("SELECT * FROM chores WHERE template_id=$1", [
+          laundry.id,
+        ])
+      ).rowCount,
+      3,
+    );
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${laundry.id}/assign`,
+          { memberIds: [memberId], mode: "cooperative", schedule: "once" },
+          admin,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${laundry.id}/assign`,
+          {
+            memberIds: [memberId, 999999],
+            mode: "individual",
+            schedule: "once",
+          },
+          admin,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await db.query("SELECT * FROM chores WHERE template_id=$1", [
+          laundry.id,
+        ])
+      ).rowCount,
+      3,
+    );
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${laundry.id}/assign`,
+          { startsOn: "2028-02-10", dueDate: "2028-02-01", schedule: "once" },
+          admin,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await post("/admin/chores", { title: "Make dinner" }, admin)).status,
+      302,
+    );
+    const dinner = (
+      await db.query("SELECT * FROM chore_templates WHERE title='Make dinner'")
+    ).rows[0];
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${dinner.id}/assign`,
+          {
+            memberIds: [memberId, 2],
+            mode: "cooperative",
+            schedule: "once",
+            startsOn: todayKey(),
+          },
+          admin,
+        )
+      ).status,
+      302,
+    );
+    const shared = (
+      await db.query("SELECT * FROM chores WHERE template_id=$1", [dinner.id])
+    ).rows[0];
+    assert.equal(shared.cooperative, true);
+    assert.equal(
+      (
+        await db.query("SELECT * FROM chore_members WHERE chore_id=$1", [
+          shared.id,
+        ])
+      ).rowCount,
+      2,
+    );
+    await db.query(
+      "UPDATE users SET password_hash=$1 WHERE username IN ('alex','sam')",
+      [await bcrypt.hash(password, 4)],
+    );
+    const alex = await login("alex");
+    const sam = await login("sam");
+    for (const auth of [member, alex]) {
+      const html = await (
+        await fetch(base + "/dashboard", { headers: { Cookie: auth.cookie } })
+      ).text();
+      assert.match(html, /Make dinner/);
+      assert.match(html, /Co-op chore/);
+      assert.match(html, /Alex Member, New Member/);
+    }
+    const outsiderHtml = await (
+      await fetch(base + "/dashboard", { headers: { Cookie: sam.cookie } })
+    ).text();
+    assert.doesNotMatch(outsiderHtml, /Make dinner/);
+    assert.equal(
+      (await post(`/chores/${shared.id}/toggle`, { completed: "true" }, sam))
+        .status,
+      403,
+    );
+    // Two members completing from stale pages must not toggle the shared task back open.
+    await Promise.all([
+      post(`/chores/${shared.id}/toggle`, { completed: "true" }, member),
+      post(`/chores/${shared.id}/toggle`, { completed: "true" }, alex),
+    ]);
+    assert.equal(
+      (await db.query("SELECT completed FROM chores WHERE id=$1", [shared.id]))
+        .rows[0].completed,
+      true,
+    );
+    assert.equal(
+      (
+        await post(
+          "/requests",
+          {
+            choreId: shared.id,
+            requestType: "other",
+            details: "Shared chore request",
+          },
+          alex,
+        )
+      ).status,
+      302,
+    );
+    assert.equal(
+      (
+        await post(
+          "/requests",
+          {
+            choreId: shared.id,
+            requestType: "other",
+            details: "Not a participant",
+          },
+          sam,
+        )
+      ).status,
+      403,
+    );
+    const filtered = await (
+      await fetch(base + "/dashboard?member=2", {
+        headers: { Cookie: admin.cookie },
+      })
+    ).text();
+    assert.match(filtered, new RegExp('id="chore-' + shared.id + '"'));
+    const unassigned = await (
+      await fetch(base + "/dashboard?member=unassigned", {
+        headers: { Cookie: admin.cookie },
+      })
+    ).text();
+    assert.doesNotMatch(unassigned, new RegExp('id="chore-' + shared.id + '"'));
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${dinner.id}/assign`,
+          {
+            memberIds: [memberId, 2],
+            mode: "cooperative",
+            schedule: "recurring",
+            startsOn: todayKey(),
+            intervalCount: 1,
+            intervalUnit: "weeks",
+          },
+          admin,
+        )
+      ).status,
+      302,
+    );
+    const coopSeries = (
+      await db.query("SELECT * FROM chore_series WHERE template_id=$1", [
+        dinner.id,
+      ])
+    ).rows[0];
+    await db.query("SELECT generate_chore_occurrences($1::date+7)", [
+      todayKey(),
+    ]);
+    const coopWindows = (
+      await db.query(
+        "SELECT c.id,count(m.user_id)::int AS members FROM chores c JOIN chore_members m ON m.chore_id=c.id WHERE c.series_id=$1 GROUP BY c.id",
+        [coopSeries.id],
+      )
+    ).rows;
+    assert.equal(coopWindows.length, 2);
+    assert.ok(coopWindows.every((c) => c.members === 2));
+    assert.equal((await post(`/admin/series/${coopSeries.id}`, {memberIds:[memberId,3],active:'true'}, admin)).status,302);
+    await db.query("SELECT generate_chore_occurrences($1::date+14)",[todayKey()]);
+    const nextGroup = (await db.query('SELECT m.user_id FROM chore_members m JOIN chores c ON c.id=m.chore_id WHERE c.series_id=$1 AND c.window_start=$2::date+14 ORDER BY m.user_id',[coopSeries.id,todayKey()])).rows.map(r=>r.user_id);
+    assert.deepEqual(nextGroup,[3,memberId].sort((a,b)=>a-b));
+    assert.equal((await db.query('SELECT * FROM chore_members WHERE chore_id=$1',[coopWindows[0].id])).rowCount,2);
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${dinner.id}`,
+          { title: "Make a meal", description: "Updated definition" },
+          admin,
+        )
+      ).status,
+      302,
+    );
+    assert.equal(
+      (await db.query("SELECT title FROM chores WHERE id=$1", [shared.id]))
+        .rows[0].title,
+      "Make dinner",
+    );
+    assert.equal(
+      (
+        await post(
+          `/admin/library/${laundry.id}/assign`,
+          { memberIds: [memberId], schedule: "once", startsOn: "2099-01-01" },
+          admin,
+        )
+      ).status,
+      302,
+    );
+    const future = (
+      await db.query(
+        "SELECT id FROM chores WHERE template_id=$1 AND window_start='2099-01-01'",
+        [laundry.id],
+      )
+    ).rows[0];
+    assert.equal(
+      (await post(`/chores/${future.id}/toggle`, { completed: "true" }, member))
+        .status,
+      403,
+    );
     assert.equal(
       (
         await post(
@@ -302,6 +634,33 @@ test(
     assert.equal(
       (await login("new.member", "replacement-password-only")).status,
       401,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "SELECT * FROM chore_participants WHERE chore_id=$1 AND user_id=$2",
+          [shared.id, memberId],
+        )
+      ).rowCount,
+      1,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "SELECT * FROM series_participants WHERE series_id=$1 AND user_id=$2",
+          [coopSeries.id, memberId],
+        )
+      ).rowCount,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "SELECT * FROM chore_participants p JOIN chores c ON c.id=p.chore_id WHERE c.series_id=$1 AND p.user_id=$2",
+          [coopSeries.id, memberId],
+        )
+      ).rowCount,
+      0,
     );
     r = await fetch(base + "/dashboard", {
       redirect: "manual",

@@ -191,8 +191,11 @@ function createApp({ db = pool, env = process.env } = {}) {
     await db.query("SELECT generate_chore_occurrences($1::date)", [todayKey()]);
     const choresResult = await db.query(
       `SELECT c.id, c.user_id, c.title, c.description, to_char(c.due_date, 'YYYY-MM-DD') AS due_date,
-       c.completed, (c.completed AND (c.completed_at AT TIME ZONE 'Europe/Oslo')::date > c.due_date) AS completed_late, c.series_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at, COALESCE(u.display_name, 'Unassigned') AS display_name FROM chores c LEFT JOIN users u ON u.id = c.user_id
-       ${isAdmin ? "" : "WHERE c.user_id = $1"} ORDER BY c.due_date, c.id`,
+       c.completed, (c.completed AND (c.completed_at AT TIME ZONE 'Europe/Oslo')::date > c.due_date) AS completed_late, c.series_id, c.cooperative, c.template_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at,
+       COALESCE((SELECT string_agg(u.display_name, ', ' ORDER BY u.display_name) FROM chore_members m JOIN users u ON u.id=m.user_id WHERE m.chore_id=c.id),'Unassigned') AS display_name,
+       ARRAY(SELECT m.user_id FROM chore_members m WHERE m.chore_id=c.id) AS member_ids
+       FROM chores c
+       ${isAdmin ? "" : "WHERE EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=c.id AND m.user_id=$1)"} ORDER BY c.due_date, c.id`,
       isAdmin ? [] : [user.id],
     );
     const requestsResult = await db.query(
@@ -211,7 +214,14 @@ function createApp({ db = pool, env = process.env } = {}) {
     const series = isAdmin
       ? (
           await db.query(
-            "SELECT s.*, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on, COALESCE(u.display_name, 'Unassigned') AS display_name FROM chore_series s LEFT JOIN users u ON u.id=s.user_id ORDER BY s.id DESC",
+            "SELECT s.*, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on, ARRAY(SELECT m.user_id FROM series_members m WHERE m.series_id=s.id) AS member_ids FROM chore_series s ORDER BY s.id DESC",
+          )
+        ).rows
+      : [];
+    const library = isAdmin
+      ? (
+          await db.query(
+            "SELECT * FROM chore_templates ORDER BY lower(title),id",
           )
         ).rows
       : [];
@@ -224,8 +234,8 @@ function createApp({ db = pool, env = process.env } = {}) {
       (c) =>
         !member ||
         (member === "unassigned"
-          ? c.user_id === null
-          : String(c.user_id) === member),
+          ? c.member_ids.length === 0
+          : c.member_ids.includes(Number(member))),
     );
     const today = todayKey();
     const stats = {
@@ -266,6 +276,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       users,
       activeUsers,
       series,
+      library,
       allChores,
       chores,
       requests: requestsResult.rows,
@@ -283,10 +294,17 @@ function createApp({ db = pool, env = process.env } = {}) {
   });
 
   app.post("/chores/:id/toggle", requireAuth, async (req, res) => {
-    await db.query(
-      "UPDATE chores SET completed = NOT completed, completed_at=CASE WHEN completed THEN NULL ELSE now() END WHERE id = $1 AND user_id = $2 AND (window_start IS NULL OR window_start <= (now() AT TIME ZONE 'Europe/Oslo')::date)",
-      [req.params.id, req.session.user.id],
+    if (
+      !["true", "false"].includes(req.body.completed || "") &&
+      req.body.completed !== undefined
+    )
+      problem("Invalid completion state.");
+    const result = await db.query(
+      "UPDATE chores SET completed = COALESCE($3::boolean, NOT completed), completed_at=CASE WHEN COALESCE($3::boolean, NOT completed) THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id = $1 AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2) AND (window_start IS NULL OR window_start <= (now() AT TIME ZONE 'Europe/Oslo')::date) RETURNING id",
+      [req.params.id, req.session.user.id, req.body.completed ?? null],
     );
+    if (!result.rowCount)
+      problem("This chore is not assigned to you or has not started yet.", 403);
     req.session.flash = "Your change has been saved.";
     return res.redirect("/dashboard");
   });
@@ -301,7 +319,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       return res.status(400).send("Please describe your request.");
     if (choreId) {
       const owned = await db.query(
-        "SELECT id FROM chores WHERE id = $1 AND user_id = $2",
+        "SELECT id FROM chores WHERE id = $1 AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2)",
         [choreId, req.session.user.id],
       );
       if (!owned.rows.length)
@@ -349,6 +367,8 @@ function createApp({ db = pool, env = process.env } = {}) {
           problem(
             "Recurring chores follow their completion windows. A request cannot change a recurring deadline.",
           );
+        if (chore?.window_start && due < dateKey(chore.window_start))
+          problem("The due date must be on or after the start date.");
         await c.query("UPDATE chores SET due_date=$1 WHERE id=$2", [
           due,
           request.chore_id,
@@ -366,14 +386,12 @@ function createApp({ db = pool, env = process.env } = {}) {
 
   app.use((err, req, res, next) => {
     if (err.status || err.code === "23505") {
-      return res
-        .status(err.status || 409)
-        .render("error", {
-          message:
-            err.code === "23505"
-              ? "That username is already in use, including removed accounts."
-              : err.message,
-        });
+      return res.status(err.status || 409).render("error", {
+        message:
+          err.code === "23505"
+            ? "That username is already in use, including removed accounts."
+            : err.message,
+      });
     }
     console.error(err);
     res.status(500).send("Unexpected server error");
