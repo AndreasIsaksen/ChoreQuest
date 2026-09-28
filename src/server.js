@@ -188,10 +188,13 @@ function createApp({ db = pool, env = process.env } = {}) {
       ? req.query.status
       : "all";
     const view = req.query.view === "calendar" ? "calendar" : "list";
-    await db.query("SELECT generate_chore_occurrences($1::date)", [todayKey()]);
+    await transaction(db, async (c) => {
+      await c.query("SELECT generate_chore_occurrences($1::date)", [todayKey()]);
+      await c.query("SELECT process_points($1::date)", [todayKey()]);
+    });
     const choresResult = await db.query(
       `SELECT c.id, c.user_id, c.title, c.description, to_char(c.due_date, 'YYYY-MM-DD') AS due_date,
-       c.completed, (c.completed AND (c.completed_at AT TIME ZONE 'Europe/Oslo')::date > c.due_date) AS completed_late, c.series_id, c.cooperative, c.template_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at,
+       c.points, c.completed, (c.completed AND (c.completed_at AT TIME ZONE 'Europe/Oslo')::date > c.due_date) AS completed_late, c.series_id, c.cooperative, c.template_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at,
        COALESCE((SELECT string_agg(u.display_name, ', ' ORDER BY u.display_name) FROM chore_members m JOIN users u ON u.id=m.user_id WHERE m.chore_id=c.id),'Unassigned') AS display_name,
        ARRAY(SELECT m.user_id FROM chore_members m WHERE m.chore_id=c.id) AS member_ids
        FROM chores c
@@ -207,7 +210,7 @@ function createApp({ db = pool, env = process.env } = {}) {
     const users = isAdmin
       ? (
           await db.query(
-            "SELECT id, username, display_name, role, deleted_at FROM users ORDER BY deleted_at NULLS FIRST, display_name",
+            "SELECT u.id, username, display_name, role, deleted_at, p.weekly_points, p.permanent_points FROM users u JOIN member_points p ON p.user_id=u.id ORDER BY deleted_at NULLS FIRST, display_name",
           )
         ).rows
       : [];
@@ -225,6 +228,7 @@ function createApp({ db = pool, env = process.env } = {}) {
           )
         ).rows
       : [];
+    const pointBalance = (await db.query("SELECT * FROM member_points WHERE user_id=$1", [user.id])).rows[0] || { weekly_points: 0, permanent_points: 0 };
     const activeUsers = users.filter((u) => !u.deleted_at);
     const allChores = choresResult.rows.map((c) => ({
       ...c,
@@ -267,6 +271,7 @@ function createApp({ db = pool, env = process.env } = {}) {
     delete req.session.flash;
     res.render("dashboard", {
       user,
+      pointBalance,
       isAdmin,
       section,
       selectedMonth,
@@ -299,10 +304,10 @@ function createApp({ db = pool, env = process.env } = {}) {
       req.body.completed !== undefined
     )
       problem("Invalid completion state.");
-    const result = await db.query(
+    const result = await transaction(db, (c) => c.query(
       "UPDATE chores SET completed = COALESCE($3::boolean, NOT completed), completed_at=CASE WHEN COALESCE($3::boolean, NOT completed) THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id = $1 AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2) AND (window_start IS NULL OR window_start <= (now() AT TIME ZONE 'Europe/Oslo')::date) RETURNING id",
       [req.params.id, req.session.user.id, req.body.completed ?? null],
-    );
+    ));
     if (!result.rowCount)
       problem("This chore is not assigned to you or has not started yet.", 403);
     req.session.flash = "Your change has been saved.";
@@ -403,16 +408,12 @@ function createApp({ db = pool, env = process.env } = {}) {
 if (require.main === module) {
   (async () => {
     await migrate(pool);
-    await pool.query("SELECT generate_chore_occurrences($1::date)", [
-      todayKey(),
-    ]);
-    const timer = setInterval(
-      () =>
-        pool
-          .query("SELECT generate_chore_occurrences($1::date)", [todayKey()])
-          .catch(console.error),
-      60000,
-    );
+    const maintain = () => transaction(pool, async (c) => {
+      await c.query("SELECT generate_chore_occurrences($1::date)", [todayKey()]);
+      await c.query("SELECT process_points($1::date)", [todayKey()]);
+    });
+    await maintain();
+    const timer = setInterval(() => maintain().catch(console.error), 60000);
     timer.unref();
     const port = Number(process.env.PORT || 3000);
     createApp().listen(port, () =>

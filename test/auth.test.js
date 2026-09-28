@@ -10,6 +10,7 @@ async function fixture(t, settings = {}) {
   let calls = 0;
   const queries = [];
   const db = {
+    async connect() { return { query: this.query.bind(this), release() {} }; },
     async query(sql, values) {
       calls += 1;
       queries.push({ sql, values });

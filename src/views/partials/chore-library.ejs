@@ -5,15 +5,17 @@
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <label class="wide">Chore name<input name="title" placeholder="e.g. Laundry" maxlength="160" required></label>
 <label class="wide">Description (optional)<textarea name="description" rows="2" maxlength="2000" placeholder="What does a job well done look like?"></textarea></label>
+<label>Points per member<input type="number" name="points" min="0" max="1000000" step="1" value="0" required></label>
 <div class="form-footer wide"><p>Save the chore first. Set members and dates in its administration panel.</p><button class="button primary">Save to library</button></div>
 </form></details>
 <% if(!library.length) { %><p class="padded muted">No saved chores yet. Add your first chore above.</p><% } %>
 <div class="library-grid">
 <% library.forEach(item=>{ %>
-<article class="library-card" id="library-<%= item.id %>"><h3><%= item.title %></h3><p class="muted"><%= item.description || 'Ready to add to your household plan.' %></p>
+<article class="library-card" id="library-<%= item.id %>"><h3><%= item.title %></h3><span class="badge pending"><%= item.points %> points per member</span><p class="muted"><%= item.description || 'Ready to add to your household plan.' %></p>
 <details class="decision"><summary>Administer chore</summary>
 <form method="post" action="/admin/library/<%= item.id %>/assign" class="stack">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label>Points per member<input type="number" name="points" min="0" max="1000000" step="1" value="<%= item.points %>" required></label><p class="form-hint">Saves the library value for this and future plans. Existing tasks and schedules retain their points.</p>
 <%- include('assignees',{people:activeUsers,selected:[],multiple:true}) %>
 <label>Assignment type<select name="mode"><option value="individual">Individual — separate tasks</option><option value="cooperative">Co-op — shared task</option></select></label>
 <p class="form-hint">Individual: each person completes their own task. Co-op: select at least two members; anyone in the group can mark it done for everyone. Leave members empty for an unassigned individual task.</p>
@@ -23,7 +25,7 @@
 <div class="stack" data-recurring hidden><label>Repeat every<input type="number" name="intervalCount" min="1" max="365" value="1"></label><label>Period<select name="intervalUnit"><option value="days">Days</option><option value="weeks" selected>Weeks</option><option value="months">Months</option></select></label><p class="form-hint">Complete once within each period. New periods appear when they start, with a separate completion record.</p></div>
 <button class="button primary">Add to household plan</button>
 </form></details>
-<details class="decision"><summary>Edit saved chore</summary><form class="stack" method="post" action="/admin/library/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Name<input name="title" value="<%= item.title %>" maxlength="160" required></label><label>Description<textarea name="description" rows="2" maxlength="2000"><%= item.description %></textarea></label><p class="form-hint">Applies to new assignments. Existing tasks and recurring schedules keep their original details.</p><button class="button subtle">Save details</button></form></details>
+<details class="decision"><summary>Edit saved chore</summary><form class="stack" method="post" action="/admin/library/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Name<input name="title" value="<%= item.title %>" maxlength="160" required></label><label>Description<textarea name="description" rows="2" maxlength="2000"><%= item.description %></textarea></label><label>Points per member<input type="number" name="points" min="0" max="1000000" step="1" value="<%= item.points %>" required></label><p class="form-hint">Applies to new assignments. Existing tasks and recurring schedules keep their original details.</p><button class="button subtle">Save details</button></form></details>
 </article><% }) %></div></section>
 <section class="panel form-panel"><div class="panel-heading"><h2>Recurring schedules</h2></div>
 <% if(!series.length) { %><p class="padded muted">Administer a saved chore above to create a recurring schedule.</p><% } %>

@@ -10,6 +10,12 @@ function text(value, label, max = 160) {
     problem(`${label} is required (maximum ${max} characters).`);
   return value.trim();
 }
+function points(value) {
+  if (value === undefined) return 0;
+  if (!/^\d+$/.test(String(value)) || !Number.isSafeInteger(Number(value)) || Number(value) > 1000000)
+    problem("Points must be a whole number between 0 and 1,000,000.");
+  return Number(value);
+}
 function date(value, required = false) {
   if (!value && !required) return null;
   if (
@@ -89,7 +95,7 @@ async function assignChore(c, template, b) {
       : [null]) {
     const row = recurring
       ? await c.query(
-          "INSERT INTO chore_series(title,description,user_id,starts_on,interval_count,interval_unit,template_id,cooperative) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+          "INSERT INTO chore_series(title,description,user_id,starts_on,interval_count,interval_unit,template_id,cooperative,points) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id",
           [
             template.title,
             template.description,
@@ -99,10 +105,11 @@ async function assignChore(c, template, b) {
             b.intervalUnit,
             template.id,
             cooperative,
+            template.points,
           ],
         )
       : await c.query(
-          "INSERT INTO chores(title,description,user_id,window_start,due_date,template_id,cooperative) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+          "INSERT INTO chores(title,description,user_id,window_start,due_date,template_id,cooperative,points) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
           [
             template.title,
             template.description,
@@ -111,6 +118,7 @@ async function assignChore(c, template, b) {
             due,
             template.id,
             cooperative,
+            template.points,
           ],
         );
     if (cooperative) {
@@ -131,6 +139,9 @@ async function transaction(db, fn) {
   const c = await db.connect();
   try {
     await c.query("BEGIN");
+    // Serialize changes with recurring generation and settle debts before changing ownership.
+    await c.query("SELECT pg_advisory_xact_lock(718431)");
+    await c.query("SELECT process_points($1::date)", [todayKey()]);
     const result = await fn(c);
     await c.query("COMMIT");
     return result;
@@ -165,8 +176,8 @@ function installAdmin(app, db, requireAdmin) {
       await c.query("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE");
       const template = (
         await c.query(
-          "INSERT INTO chore_templates(title,description) VALUES($1,$2) RETURNING *",
-          [title, description],
+          "INSERT INTO chore_templates(title,description,points) VALUES($1,$2,$3) RETURNING *",
+          [title, description, points(b.points)],
         )
       ).rows[0];
       // Retain the previous API for existing clients; the creation form now saves only a definition.
@@ -187,6 +198,10 @@ function installAdmin(app, db, requireAdmin) {
         ])
       ).rows[0];
       if (!template) problem("Chore not found.", 404);
+      if (req.body.points !== undefined) {
+        template.points = points(req.body.points);
+        await c.query("UPDATE chore_templates SET points=$1 WHERE id=$2", [template.points, template.id]);
+      }
       await assignChore(c, template, req.body);
     });
     redirect(
@@ -203,8 +218,8 @@ function installAdmin(app, db, requireAdmin) {
         : "";
     if (description.length > 2000) problem("Description is too long.");
     const r = await db.query(
-      "UPDATE chore_templates SET title=$1,description=$2 WHERE id=$3 RETURNING id",
-      [title, description, id(req.params.id)],
+      "UPDATE chore_templates SET title=$1,description=$2,points=$4 WHERE id=$3 RETURNING id",
+      [title, description, id(req.params.id), points(req.body.points)],
     );
     if (!r.rowCount) problem("Chore not found.", 404);
     redirect(

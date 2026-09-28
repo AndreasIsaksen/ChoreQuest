@@ -73,3 +73,15 @@ For example, a two-week window starting Monday ends the second Sunday. Monthly b
 The **Household** page lets admins create accounts, change display names/roles, reset passwords, and remove or restore accounts. Removal is reversible: sign-in is revoked, current unfinished/undated individual chores and future periods become unassigned, and completed/overdue history remains. For co-op chores, the removed account leaves current unfinished tasks and future groups; other participants keep the task. Usernames stay reserved. Changes revoke existing sessions. An admin cannot remove or demote their own account, and at least one active admin must remain.
 
 Schema changes in `db/migrations` are applied transactionally at startup and recorded in `schema_migrations`. Back up existing databases before deploying. Integration tests must run only against a disposable database: `TEST_DATABASE_URL=postgres://... npm test` creates fixture users and changes test data. Without this variable, database integration tests are skipped.
+
+## Member points
+
+Admins set a nonnegative whole-number **Points per member** value (0–1,000,000) in the chore library, including **Administer chore**. Each assignment and recurring schedule retains its saved value; changing the library applies to new plans. Existing library entries, tasks, and schedules start at zero, so deployment does not award or charge points retroactively. Create a new plan with a point value to start scoring it.
+
+Members see their weekly and permanent balances on the overview and chores pages; admins also see each member’s balances under Household. Completing a task awards its value to each assigned member, including every co-op participant. Repeated completion submissions do not award extra points. Reopening reverses the completion award in the current week.
+
+An unfinished task receives one deduction per assignee after its inclusive due date. There is no repeated daily charge. Undated and unassigned tasks incur no deduction. Late completion earns the normal award while retaining the missed-deadline charge. Changing an already missed deadline does not erase its penalty.
+
+Weeks run Monday through Sunday in **Europe/Oslo**, including daylight-saving changes. At the Sunday-to-Monday boundary, the closing weekly balance moves into the permanent account and the new weekly balance starts at zero. Negative balances are supported in both accounts. A Sunday deadline’s penalty belongs to the closing week. Processing runs at startup, every minute, and before dashboard reads and chore/account changes; catch-up after downtime charges missed occurrences to their original weeks. Settlement may run up to a minute after midnight, and dashboard loading settles before showing balances.
+
+The append-only points ledger records awards, reversals, and deductions. Weekly account buckets are retained and marked settled on transfer; permanent balances sum settled buckets. Transactions, an advisory lock, and a unique overdue-charge key protect against duplicate processing. Account removal preserves point history.

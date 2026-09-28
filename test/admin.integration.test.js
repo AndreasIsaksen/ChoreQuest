@@ -398,9 +398,12 @@ test(
       400,
     );
     assert.equal(
-      (await post("/admin/chores", { title: "Make dinner" }, admin)).status,
+      (await post("/admin/chores", { title: "Make dinner", points: "10" }, admin)).status,
       302,
     );
+    for (const points of ["-1", "1.5", "1000001", "abc", ""]) {
+      assert.equal((await post("/admin/chores", { title: "Invalid points", points }, admin)).status, 400);
+    }
     const dinner = (
       await db.query("SELECT * FROM chore_templates WHERE title='Make dinner'")
     ).rows[0];
@@ -423,6 +426,8 @@ test(
       await db.query("SELECT * FROM chores WHERE template_id=$1", [dinner.id])
     ).rows[0];
     assert.equal(shared.cooperative, true);
+    assert.equal(shared.points, 10);
+    assert.equal((await post(`/admin/library/${dinner.id}`, { title: "Tampered", points: 100 }, member)).status, 403);
     assert.equal(
       (
         await db.query("SELECT * FROM chore_members WHERE chore_id=$1", [
@@ -445,6 +450,9 @@ test(
       assert.match(html, /Co-op chore/);
       assert.match(html, /Alex Member, New Member/);
     }
+    const adminLibrary = await (await fetch(base + "/dashboard?section=chores", { headers: { Cookie: admin.cookie } })).text();
+    assert.match(adminLibrary, /name="points"/);
+    assert.match(adminLibrary, /10 points per member/);
     const outsiderHtml = await (
       await fetch(base + "/dashboard", { headers: { Cookie: sam.cookie } })
     ).text();
@@ -454,6 +462,7 @@ test(
         .status,
       403,
     );
+    assert.equal((await db.query("SELECT count(*)::int AS n FROM point_ledger WHERE chore_id=$1", [shared.id])).rows[0].n, 0);
     // Two members completing from stale pages must not toggle the shared task back open.
     await Promise.all([
       post(`/chores/${shared.id}/toggle`, { completed: "true" }, member),
@@ -464,6 +473,7 @@ test(
         .rows[0].completed,
       true,
     );
+    assert.deepEqual((await db.query("SELECT user_id,amount FROM point_ledger WHERE chore_id=$1 ORDER BY user_id", [shared.id])).rows, [{user_id:2,amount:10},{user_id:memberId,amount:10}]);
     assert.equal(
       (
         await post(
@@ -512,6 +522,7 @@ test(
             memberIds: [memberId, 2],
             mode: "cooperative",
             schedule: "recurring",
+            points: "20",
             startsOn: todayKey(),
             intervalCount: 1,
             intervalUnit: "weeks",
@@ -535,6 +546,9 @@ test(
         [coopSeries.id],
       )
     ).rows;
+    assert.equal(coopSeries.points, 20);
+    assert.equal((await db.query("SELECT points FROM chore_templates WHERE id=$1", [dinner.id])).rows[0].points, 20);
+    assert.equal((await db.query("SELECT points FROM chores WHERE id=$1", [shared.id])).rows[0].points, 10);
     assert.equal(coopWindows.length, 2);
     assert.ok(coopWindows.every((c) => c.members === 2));
     assert.equal((await post(`/admin/series/${coopSeries.id}`, {memberIds:[memberId,3],active:'true'}, admin)).status,302);
@@ -546,7 +560,7 @@ test(
       (
         await post(
           `/admin/library/${dinner.id}`,
-          { title: "Make a meal", description: "Updated definition" },
+          { title: "Make a meal", description: "Updated definition", points: "30" },
           admin,
         )
       ).status,
