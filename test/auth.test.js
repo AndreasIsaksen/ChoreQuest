@@ -293,3 +293,72 @@ test("invalid cookie mode fails startup instead of silently disabling Secure", (
     /must be true or false/,
   );
 });
+
+for (const role of ["member", "admin"]) {
+  test(`language switching for ${role} persists through login/logout and preserves filters`, async (t) => {
+    const f = await fixture(t);
+    const page = await f.request("/login");
+    const initialCookie = cookie(page);
+    const csrf = token(await page.text());
+    const switchLanguage = await f.request("/language", form({
+      _csrf: csrf, language: "nb", returnTo: "/login",
+    }, initialCookie));
+    assert.equal(switchLanguage.status, 303);
+    assert.equal(switchLanguage.headers.get("location"), "/login");
+    const languageCookie = cookie(switchLanguage);
+    assert.equal(languageCookie, "chorequest_language=nb");
+    assert.match(switchLanguage.headers.get("set-cookie"), /Max-Age=31536000.*HttpOnly.*SameSite=Lax/);
+    const beforeLogin = `${initialCookie}; ${languageCookie}`;
+    const norwegianLogin = await f.request("/login", { headers: { Cookie: beforeLogin } });
+    assert.equal(norwegianLogin.headers.get("content-language"), "nb");
+    assert.match(await norwegianLogin.text(), /Velkommen hjem/);
+    const invalid = await f.request("/login", form({ _csrf: csrf, username: role, password: "wrong" }, beforeLogin));
+    assert.match(await invalid.text(), /Ugyldig brukernavn eller passord/);
+    const login = await f.request("/login", form({ _csrf: csrf, username: role, password }, beforeLogin));
+    const authenticated = `${cookie(login)}; ${languageCookie}`;
+    const returnTo = "/dashboard?section=chores&view=calendar&month=2026-09&status=open#household-plan";
+    const dashboard = await f.request(returnTo, { headers: { Cookie: authenticated } });
+    const html = await dashboard.text();
+    assert.match(html, /<html lang="nb">/);
+    assert.match(html, /Dine poeng/);
+    assert.match(html, /Denne månedens plan/);
+    assert.match(html, /value="nb" checked/);
+    assert.match(html, /class="nav-item active"/);
+    const newCsrf = token(html);
+    const saved = await f.request("/requests", form({ _csrf: newCsrf, requestType: "other", details: "My own words" }, authenticated));
+    assert.equal(saved.status, 302);
+    const flash = await f.request("/dashboard?section=requests", { headers: { Cookie: authenticated } });
+    assert.match(await flash.text(), /Endringen din er lagret/);
+    if (role === "admin") {
+      const error = await f.request("/admin/chores", form({ _csrf: newCsrf, title: "" }, authenticated));
+      assert.equal(error.status, 400);
+      assert.match(await error.text(), /Tittel er påkrevd/);
+    }
+    const switched = await f.request("/language", form({ _csrf: newCsrf, language: "en", returnTo }, authenticated));
+    assert.equal(switched.headers.get("location"), returnTo);
+    const english = await f.request(returnTo, { headers: { Cookie: `${cookie(login)}; ${cookie(switched)}` } });
+    assert.match(await english.text(), /This month’s agenda/);
+    await f.request("/logout", form({ _csrf: newCsrf }, authenticated));
+    const loggedOut = await f.request("/login", { headers: { Cookie: languageCookie } });
+    assert.match(await loggedOut.text(), /<html lang="nb">/);
+  });
+}
+
+test("language endpoint validates CSRF/language and refuses external return URLs", async (t) => {
+  const f = await fixture(t);
+  const page = await f.request("/login");
+  const sessionCookie = cookie(page);
+  const csrf = token(await page.text());
+  assert.equal((await f.request("/language", form({ language: "nb" }, sessionCookie))).status, 403);
+  for (const language of ["nn", "__proto__", ["nb", "en"]]) {
+    const response = await f.request("/language", form({ _csrf: csrf, language }, sessionCookie));
+    assert.equal(response.status, 400);
+    assert.equal(response.headers.get("set-cookie"), null);
+  }
+  for (const returnTo of ["https://example.com", "//example.com", "/dashboard/elsewhere", "/logout", "/\\example.com"]) {
+    const response = await f.request("/language", form({ _csrf: csrf, language: "nb", returnTo }, sessionCookie));
+    assert.equal(response.headers.get("location"), "/dashboard");
+  }
+  const unknownCookie = await f.request("/login", { headers: { Cookie: "chorequest_language=__proto__" } });
+  assert.match(await unknownCookie.text(), /<html lang="en">/);
+});

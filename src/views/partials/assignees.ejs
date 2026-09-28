@@ -1,7 +1,7 @@
 <% if(multiple) { %>
-<fieldset class="member-picker wide"><legend>Members</legend>
+<fieldset class="member-picker wide"><legend><%= t("Members") %></legend>
 <% people.forEach(p=>{ %><label><input type="checkbox" name="memberIds" value="<%= p.id %>" <%= selected.includes(p.id)?'checked':'' %>><span><%= p.display_name %></span></label><% }) %>
 </fieldset>
 <% } else { %>
-<label>Assigned to<select name="userId"><option value="">Unassigned</option><% people.forEach(p=>{ %><option value="<%= p.id %>" <%= selected.includes(p.id)?'selected':'' %>><%= p.display_name %></option><% }) %></select></label>
+<label><%= t("Assigned to") %><select name="userId"><option value=""><%= t("Unassigned") %></option><% people.forEach(p=>{ %><option value="<%= p.id %>" <%= selected.includes(p.id)?'selected':'' %>><%= p.display_name %></option><% }) %></select></label>
 <% } %>

@@ -8,9 +8,9 @@ function todayKey() {
     new Date(),
   );
 }
-function formatDate(value) {
+function formatDate(value, language = "en") {
   if (!value) return "";
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(language === "nb" ? "nb-NO" : "en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",

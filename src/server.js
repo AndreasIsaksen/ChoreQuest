@@ -10,6 +10,8 @@ const { migrate } = require("./migrate");
 const { installAdmin, date, transaction, problem } = require("./admin");
 const { dateKey, formatDate, calendarDays, todayKey } = require("./helpers");
 
+const { translator, languageFromCookie, languageReturnTo } = require("./i18n");
+
 function createApp({ db = pool, env = process.env } = {}) {
   const app = express();
   const secureSetting = env.SESSION_COOKIE_SECURE ?? "true";
@@ -34,12 +36,22 @@ function createApp({ db = pool, env = process.env } = {}) {
 
   app.use("/assets", express.static(path.join(__dirname, "public")));
   app.use(express.urlencoded({ extended: false }));
+  app.use((req, res, next) => {
+    const language = languageFromCookie(req.headers.cookie);
+    res.locals.language = language;
+    res.locals.t = translator(language);
+    res.locals.formatDate = (value) => formatDate(value, language);
+    res.locals.languageReturnTo = languageReturnTo(req.originalUrl);
+    res.set("Content-Language", language);
+    next();
+  });
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
       limit: 250,
       standardHeaders: true,
       legacyHeaders: false,
+      handler: (req, res) => res.status(429).send(res.locals.t("Too many requests, please try again later.")),
     }),
   );
   app.use(
@@ -64,7 +76,17 @@ function createApp({ db = pool, env = process.env } = {}) {
     ) {
       return next();
     }
-    return res.status(403).send("Invalid CSRF token");
+    return res.status(403).send(res.locals.t("Invalid CSRF token"));
+  });
+
+  app.post("/language", (req, res) => {
+    if (!["en", "nb"].includes(req.body.language))
+      return res.status(400).send(res.locals.t("Invalid language."));
+    res.cookie("chorequest_language", req.body.language, {
+      ...cookieOptions,
+      maxAge: 365 * 24 * 60 * 60 * 1000,
+    });
+    return res.redirect(303, languageReturnTo(req.body.returnTo));
   });
 
   // Recheck account state on every request so removal and password/role changes revoke sessions.
@@ -97,7 +119,7 @@ function createApp({ db = pool, env = process.env } = {}) {
 
   function requireAdmin(req, res, next) {
     if (!req.session.user || req.session.user.role !== "admin")
-      return res.status(403).send("Forbidden");
+      return res.status(403).send(res.locals.t("Forbidden"));
     next();
   }
 
@@ -174,7 +196,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       ? req.query.section
       : "overview";
     if (section === "household" && !isAdmin)
-      return res.status(403).send("Forbidden");
+      return res.status(403).send(res.locals.t("Forbidden"));
     const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month || "")
       ? req.query.month
       : todayKey().slice(0, 7);
@@ -232,6 +254,7 @@ function createApp({ db = pool, env = process.env } = {}) {
     const activeUsers = users.filter((u) => !u.deleted_at);
     const allChores = choresResult.rows.map((c) => ({
       ...c,
+      display_name: c.member_ids.length ? c.display_name : res.locals.t("Unassigned"),
       due_date: c.due_date ? dateKey(c.due_date) : null,
     }));
     const scoped = allChores.filter(
@@ -288,7 +311,6 @@ function createApp({ db = pool, env = process.env } = {}) {
       stats,
       today,
       flash,
-      formatDate,
       days: calendarDays(selectedMonth),
       requestLabels: {
         different_chore: "Change a chore",
@@ -321,7 +343,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       typeof details !== "string" ||
       !details.trim()
     )
-      return res.status(400).send("Please describe your request.");
+      return res.status(400).send(res.locals.t("Please describe your request."));
     if (choreId) {
       const owned = await db.query(
         "SELECT id FROM chores WHERE id = $1 AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2)",
@@ -330,7 +352,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       if (!owned.rows.length)
         return res
           .status(403)
-          .send("You can only request changes to your own chores.");
+          .send(res.locals.t("You can only request changes to your own chores."));
     }
     await db.query(
       `INSERT INTO chore_requests (user_id, chore_id, request_type, details, proposed_due_date)
@@ -399,7 +421,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       });
     }
     console.error(err);
-    res.status(500).send("Unexpected server error");
+    res.status(500).send(res.locals.t("Unexpected server error"));
   });
 
   return app;

@@ -1,0 +1,10 @@
+<form class="language-form" method="post" action="/language" data-language-form>
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <input type="hidden" name="returnTo" value="<%= languageReturnTo %>">
+  <fieldset class="language-switch">
+    <legend><%= t('Language') %></legend>
+    <label><input type="radio" name="language" value="en" <%= language === 'en' ? 'checked' : '' %>><span lang="en">English</span></label>
+    <label><input type="radio" name="language" value="nb" <%= language === 'nb' ? 'checked' : '' %>><span lang="nb">Norsk</span></label>
+  </fieldset>
+  <noscript><button class="button subtle" type="submit"><%= t('Apply language') %></button></noscript>
+</form>

@@ -1,36 +1,36 @@
 <section class="panel form-panel" id="chore-library">
-<div class="panel-heading"><div><span class="eyebrow">CREATE ONCE, USE AGAIN</span><h2>Chore library</h2><p class="muted">Your permanent overview. Choose a chore to assign it whenever you need it.</p></div><span class="badge pending"><%= library.length %> saved</span></div>
-<details class="decision padded" id="new-chore"><summary>Create a new chore</summary>
+<div class="panel-heading"><div><span class="eyebrow"><%= t("CREATE ONCE, USE AGAIN") %></span><h2><%= t("Chore library") %></h2><p class="muted"><%= t("Your permanent overview. Choose a chore to assign it whenever you need it.") %></p></div><span class="badge pending"><%= library.length %> <%= t("saved") %></span></div>
+<details class="decision padded" id="new-chore"><summary><%= t("Create a new chore") %></summary>
 <form method="post" action="/admin/chores" class="form-grid">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-<label class="wide">Chore name<input name="title" placeholder="e.g. Laundry" maxlength="160" required></label>
-<label class="wide">Description (optional)<textarea name="description" rows="2" maxlength="2000" placeholder="What does a job well done look like?"></textarea></label>
-<label>Points per member<input type="number" name="points" min="0" max="1000000" step="1" value="0" required></label>
-<div class="form-footer wide"><p>Save the chore first. Set members and dates in its administration panel.</p><button class="button primary">Save to library</button></div>
+<label class="wide"><%= t("Chore name") %><input name="title" placeholder="<%= t("e.g. Laundry") %>" maxlength="160" required></label>
+<label class="wide"><%= t("Description (optional)") %><textarea name="description" rows="2" maxlength="2000" placeholder="<%= t("What does a job well done look like?") %>"></textarea></label>
+<label><%= t("Points per member") %><input type="number" name="points" min="0" max="1000000" step="1" value="0" required></label>
+<div class="form-footer wide"><p><%= t("Save the chore first. Set members and dates in its administration panel.") %></p><button class="button primary"><%= t("Save to library") %></button></div>
 </form></details>
-<% if(!library.length) { %><p class="padded muted">No saved chores yet. Add your first chore above.</p><% } %>
+<% if(!library.length) { %><p class="padded muted"><%= t("No saved chores yet. Add your first chore above.") %></p><% } %>
 <div class="library-grid">
 <% library.forEach(item=>{ %>
-<article class="library-card" id="library-<%= item.id %>"><h3><%= item.title %></h3><span class="badge pending"><%= item.points %> points per member</span><p class="muted"><%= item.description || 'Ready to add to your household plan.' %></p>
-<details class="decision"><summary>Administer chore</summary>
+<article class="library-card" id="library-<%= item.id %>"><h3><%= item.title %></h3><span class="badge pending"><%= item.points %> <%= t("points per member") %></span><p class="muted"><%= item.description || t('Ready to add to your household plan.') %></p>
+<details class="decision"><summary><%= t("Administer chore") %></summary>
 <form method="post" action="/admin/library/<%= item.id %>/assign" class="stack">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-<label>Points per member<input type="number" name="points" min="0" max="1000000" step="1" value="<%= item.points %>" required></label><p class="form-hint">Saves the library value for this and future plans. Existing tasks and schedules retain their points.</p>
+<label><%= t("Points per member") %><input type="number" name="points" min="0" max="1000000" step="1" value="<%= item.points %>" required></label><p class="form-hint"><%= t("Saves the library value for this and future plans. Existing tasks and schedules retain their points.") %></p>
 <%- include('assignees',{people:activeUsers,selected:[],multiple:true}) %>
-<label>Assignment type<select name="mode"><option value="individual">Individual — separate tasks</option><option value="cooperative">Co-op — shared task</option></select></label>
-<p class="form-hint">Individual: each person completes their own task. Co-op: select at least two members; anyone in the group can mark it done for everyone. Leave members empty for an unassigned individual task.</p>
-<label>Schedule<select name="schedule" data-schedule><option value="once">One-off task</option><option value="recurring">Recurring completion window</option></select></label>
-<label>Start date <span class="optional">(required for recurring chores)</span><input type="date" name="startsOn"></label>
-<label data-once>Due date (optional)<input type="date" name="dueDate"></label>
-<div class="stack" data-recurring hidden><label>Repeat every<input type="number" name="intervalCount" min="1" max="365" value="1"></label><label>Period<select name="intervalUnit"><option value="days">Days</option><option value="weeks" selected>Weeks</option><option value="months">Months</option></select></label><p class="form-hint">Complete once within each period. New periods appear when they start, with a separate completion record.</p></div>
-<button class="button primary">Add to household plan</button>
+<label><%= t("Assignment type") %><select name="mode"><option value="individual"><%= t("Individual — separate tasks") %></option><option value="cooperative"><%= t("Co-op — shared task") %></option></select></label>
+<p class="form-hint"><%= t("Individual: each person completes their own task. Co-op: select at least two members; anyone in the group can mark it done for everyone. Leave members empty for an unassigned individual task.") %></p>
+<label><%= t("Schedule") %><select name="schedule" data-schedule><option value="once"><%= t("One-off task") %></option><option value="recurring"><%= t("Recurring completion window") %></option></select></label>
+<label><%= t("Start date") %> <span class="optional"><%= t("(required for recurring chores)") %></span><input type="date" name="startsOn"></label>
+<label data-once><%= t("Due date (optional)") %><input type="date" name="dueDate"></label>
+<div class="stack" data-recurring hidden><label><%= t("Repeat every") %><input type="number" name="intervalCount" min="1" max="365" value="1"></label><label><%= t("Period") %><select name="intervalUnit"><option value="days"><%= t("Days") %></option><option value="weeks" selected><%= t("Weeks") %></option><option value="months"><%= t("Months") %></option></select></label><p class="form-hint"><%= t("Complete once within each period. New periods appear when they start, with a separate completion record.") %></p></div>
+<button class="button primary"><%= t("Add to household plan") %></button>
 </form></details>
-<details class="decision"><summary>Edit saved chore</summary><form class="stack" method="post" action="/admin/library/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Name<input name="title" value="<%= item.title %>" maxlength="160" required></label><label>Description<textarea name="description" rows="2" maxlength="2000"><%= item.description %></textarea></label><label>Points per member<input type="number" name="points" min="0" max="1000000" step="1" value="<%= item.points %>" required></label><p class="form-hint">Applies to new assignments. Existing tasks and recurring schedules keep their original details.</p><button class="button subtle">Save details</button></form></details>
+<details class="decision"><summary><%= t("Edit saved chore") %></summary><form class="stack" method="post" action="/admin/library/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label><%= t("Name") %><input name="title" value="<%= item.title %>" maxlength="160" required></label><label><%= t("Description") %><textarea name="description" rows="2" maxlength="2000"><%= item.description %></textarea></label><label><%= t("Points per member") %><input type="number" name="points" min="0" max="1000000" step="1" value="<%= item.points %>" required></label><p class="form-hint"><%= t("Applies to new assignments. Existing tasks and recurring schedules keep their original details.") %></p><button class="button subtle"><%= t("Save details") %></button></form></details>
 </article><% }) %></div></section>
-<section class="panel form-panel"><div class="panel-heading"><h2>Recurring schedules</h2></div>
-<% if(!series.length) { %><p class="padded muted">Administer a saved chore above to create a recurring schedule.</p><% } %>
-<% series.forEach(item=>{ %><details class="decision padded"><summary><%= item.title %> · <%= item.cooperative?'Co-op · ':'' %>Every <%= item.interval_count %> <%= item.interval_count===1?item.interval_unit.slice(0,-1):item.interval_unit %> · <%= item.active?'Active':'Paused' %></summary>
-<p class="small muted">Starts <%= formatDate(item.starts_on) %>. Each period is generated when it begins. Previous completions stay in the agenda.</p>
+<section class="panel form-panel"><div class="panel-heading"><h2><%= t("Recurring schedules") %></h2></div>
+<% if(!series.length) { %><p class="padded muted"><%= t("Administer a saved chore above to create a recurring schedule.") %></p><% } %>
+<% series.forEach(item=>{ %><details class="decision padded"><summary><%= item.title %> · <%= t(item.cooperative?'Co-op · ':'') %><%= t('Every {count} {unit}', {count:item.interval_count, unit:t(language==='nb' || item.interval_count===1 ? item.interval_unit.slice(0,-1) : item.interval_unit)}) %> · <%= t(item.active?'Active':'Paused') %></summary>
+<p class="small muted"><%= t("Starts") %> <%= formatDate(item.starts_on) %><%= t(". Each period is generated when it begins. Previous completions stay in the agenda.") %></p>
 <form class="form-grid" method="post" action="/admin/series/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <%- include('assignees',{people:activeUsers,selected:item.member_ids,multiple:item.cooperative}) %>
-<label>Schedule state<select name="active"><option value="true" <%= item.active?'selected':'' %>>Active</option><option value="false" <%= !item.active?'selected':'' %>>Paused</option></select></label><p class="form-hint wide">Changes apply to future periods. Pausing stops new periods; resuming fills missed periods. To change timing or assignment type, pause this schedule and add a new plan from the library.</p><button class="button subtle">Save schedule</button></form></details><% }) %></section>
+<label><%= t("Schedule state") %><select name="active"><option value="true" <%= item.active?'selected':'' %>><%= t("Active") %></option><option value="false" <%= !item.active?'selected':'' %>><%= t("Paused") %></option></select></label><p class="form-hint wide"><%= t("Changes apply to future periods. Pausing stops new periods; resuming fills missed periods. To change timing or assignment type, pause this schedule and add a new plan from the library.") %></p><button class="button subtle"><%= t("Save schedule") %></button></form></details><% }) %></section>

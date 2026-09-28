@@ -31,3 +31,12 @@ for (const selector of document.querySelectorAll("[data-schedule]")) {
   selector.addEventListener("change", syncSchedule);
   syncSchedule();
 }
+
+for (const form of document.querySelectorAll("[data-language-form]")) {
+  form.addEventListener("change", (event) => {
+    if (event.target.name !== "language") return;
+    // Preserve the current section, filters, and expanded panel on the new page.
+    form.elements.returnTo.value += location.hash;
+    form.requestSubmit();
+  });
+}

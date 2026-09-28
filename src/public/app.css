@@ -1705,3 +1705,64 @@ textarea::placeholder {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.language-form {
+  flex-shrink: 0;
+}
+.language-switch {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--sage);
+}
+.language-switch legend,
+.language-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.language-switch label {
+  display: block;
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+.language-switch span {
+  display: block;
+  padding: 8px 13px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.language-switch input:checked + span {
+  background: var(--green);
+  color: var(--white);
+}
+.language-switch input:focus-visible + span {
+  outline: 3px solid #7c9d52;
+  outline-offset: 2px;
+}
+.topbar {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 68px;
+  gap: 12px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.topbar .language-form {
+  order: 1;
+  margin-left: auto;
+}
+.login-form > .language-form {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 26px;
+}
