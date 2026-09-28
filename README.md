@@ -6,7 +6,7 @@ Read the [foundation review](docs/foundation-review.md) for prioritized findings
 
 ## Current scope
 
-The app now uses one shared login and dashboard for admins and members, with responsive navigation, chore cards, status filters, a month calendar, progress summaries, and request forms. Admins additionally see household-wide chores, member filters, the household roster, assignment tools, and request review. Members only see their own chores and requests; API guards enforce admin privileges. Legacy `/admin` and `/profile` URLs redirect to `/dashboard` after the appropriate access checks.
+The app now uses one shared login and dashboard for admins and members, with responsive navigation, chore cards, status filters, a month calendar, progress summaries, and request forms. Admins additionally see household-wide chores, member filters, the household roster, assignment tools, and request review. Members only see their own chores and requests; API guards enforce admin privileges. The `/admin` URL opens Administration after admin access checks; `/profile` redirects to the shared dashboard.
 
 Members and admins can switch between **English** and **Norsk (Norwegian Bokmål)** using the radio toggle on the login page and dashboard header. The choice takes effect immediately, preserves the current dashboard filters, and is remembered in that browser for one year, including after sign-out. English is the default. Interface labels, dates, statuses, validation messages, and admin tools are translated; household-entered names, chore descriptions, and request text stay as written. Without JavaScript, select a language and press **Apply language / Bruk språk**. Translations live in `src/locales/nb.json`, keyed by the corresponding English copy and shared across the existing views.
 
@@ -89,3 +89,13 @@ An unfinished task receives one deduction per assignee after its inclusive due d
 Weeks run Monday through Sunday in **Europe/Oslo**, including daylight-saving changes. At the Sunday-to-Monday boundary, the closing weekly balance moves into the permanent account and the new weekly balance starts at zero. Negative balances are supported in both accounts. A Sunday deadline’s penalty belongs to the closing week. Processing runs at startup, every minute, and before dashboard reads and chore/account changes; catch-up after downtime charges missed occurrences to their original weeks. Settlement may run up to a minute after midnight, and dashboard loading settles before showing balances.
 
 The append-only points ledger records awards, reversals, and deductions. Weekly account buckets are retained and marked settled on transfer; permanent balances sum settled buckets. Transactions, an advisory lock, and a unique overdue-charge key protect against duplicate processing. Chore removal preserves point history; permanent member deletion erases that member’s ledger and balances.
+
+## Administration and point adjustments
+
+The admin-only **Administration** page (`/dashboard?section=administration`, also reached from `/admin`) contains the chore builder/library, recurring schedules, member point balances, and adjustment history. The shared chore feed links to this space instead of embedding the builder.
+
+Admins can add or withdraw 1–1,000,000 whole points from a member's weekly or permanent account, with a required reason. Withdrawals may produce a negative balance. Weekly adjustments join the current week's bucket and transfer normally on Monday; permanent adjustments enter a settled bucket immediately and do not change the weekly balance.
+
+Each manual adjustment is recorded in the points ledger with its target member, administrator, account type, signed amount, timestamp, reason, and balance before/after. The history shows all members by default, supports a single-member filter, and paginates through all edits in groups of 50. A form submission ID prevents retries from applying the same adjustment twice. The ledger and balance update commit together under the existing points transaction lock.
+
+Permanent member deletion also removes that member's adjustment history. When an administrator is deleted, their identity on other members' adjustment entries is anonymised; those members' points and history remain intact. Correct mistakes through a new adjustment instead of editing a previous log entry.

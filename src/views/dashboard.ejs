@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>
-<%= t({overview:'Overview',chores:'Chores',requests:'Requests',household:'Household'}[section]) %> · ChoreQuest</title>
+<%= t({overview:'Overview',chores:'Chores',requests:'Requests',household:'Household',administration:'Administration'}[section]) %> · ChoreQuest</title>
 <link rel="stylesheet" href="/assets/app.css">
 <script src="/assets/app.js" defer>
 </script>
@@ -25,12 +25,13 @@
 </div>
 <span class="nav-caption"><%= t("YOUR SPACE") %></span>
 <nav aria-label="<%= t("Main navigation") %>">
-<% for (const [key,label,icon] of [['overview','Overview','grid'],['chores','Chores','list'],['requests','Requests','chat'],...(isAdmin ? [['household','Household','people']] : [])]) { %>
-<a href="/dashboard?section=<%= key %>" class="nav-item <%= section === key ? 'active' : '' %>" <%- section === key ? 'aria-current="page"' : '' %>>
+<% for (const [key,label,icon] of [['overview','Overview','grid'],['chores','Chores','list'],['requests','Requests','chat'],...(isAdmin ? [['household','Household','people'],['administration','Administration','grid']] : [])]) { %>
+<a href="/dashboard?section=<%= key %>" aria-label="<%= t(label) %>" class="nav-item <%= section === key ? 'active' : '' %>" <%- section === key ? 'aria-current="page"' : '' %>>
 <%- include('partials/icon',{name:icon}) %>
-<span>
+<span class="<%= key==='administration'?'admin-nav-full':'' %>">
 <%= t(label) %>
 </span>
+<% if(key==='administration') { %><span class="admin-nav-short" aria-hidden="true"><%= t('Admin') %></span><% } %>
 <% if (key === 'requests' && stats.pending) { %>
 <span class="nav-count">
 <%= stats.pending %>
@@ -68,7 +69,7 @@
 <header class="topbar">
 <%- include('partials/language-switch') %>
 <div class="breadcrumb"><%= t("Your household") %> <span>/</span> <strong>
-<%= t({overview:'Overview',chores:'Chores',requests:'Requests',household:'Household'}[section]) %>
+<%= t({overview:'Overview',chores:'Chores',requests:'Requests',household:'Household',administration:'Administration'}[section]) %>
 </strong>
 </div>
 <div class="topbar-date">
@@ -93,7 +94,7 @@
 <h1><%= t("A little teamwork.") %><br><%= t("A lighter home.") %></h1>
 <p><%= t("Welcome back,") %> <%= user.displayName %>. <%= t(isAdmin ? 'Here’s how your household is doing.' : 'Your next little wins are right here.') %>
 </p>
-<a class="button primary" href="/dashboard?section=chores<%= isAdmin ? '#new-chore' : '' %>">
+<a class="button primary" href="/dashboard?section=<%= isAdmin ? 'administration#new-chore' : 'chores' %>">
 <%- include('partials/icon',{name:isAdmin ? 'plus' : 'arrow'}) %>
 <%= t(isAdmin ? 'Create a chore' : 'View my chores') %>
 </a>
@@ -121,16 +122,16 @@
 <div>
 <span class="eyebrow"><%= t("YOUR HOUSEHOLD") %></span>
 <h1>
-<%= t({chores:isAdmin ? 'A plan for everyone.' : 'Your next little wins.', requests:'Let’s work it out.', household:'Meet your home team.'}[section]) %>
+<%= t({chores:isAdmin ? 'A plan for everyone.' : 'Your next little wins.', requests:'Let’s work it out.', household:'Meet your home team.',administration:'Your household, organised.'}[section]) %>
 </h1>
 <p class="muted">
-<%= t({chores:'A clear view of what’s done and what’s next.',requests:'Keep changes and decisions in one place.',household:'Everyone has a part to play.'}[section]) %>
+<%= t({chores:'A clear view of what’s done and what’s next.',requests:'Keep changes and decisions in one place.',household:'Everyone has a part to play.',administration:'Build chores, manage points and review every adjustment.'}[section]) %>
 </p>
 </div>
 </div>
 <% } %>
 <% if (['overview','chores'].includes(section)) { %>
-<% if(isAdmin) { %><nav class="chore-shortcuts" aria-label="<%= t("Chore administration") %>"><a class="button subtle" href="#chore-library"><%= t("Chore library") %></a><a class="button subtle" href="#household-plan"><%= t("Household plan") %></a><a class="button subtle" href="#new-chore"><%= t("Create chore") %></a></nav><% } %>
+<% if(isAdmin) { %><nav class="chore-shortcuts" aria-label="<%= t("Chore administration") %>"><a class="button subtle" href="/dashboard?section=administration#chore-library"><%= t("Chore library") %></a><a class="button subtle" href="#household-plan"><%= t("Household plan") %></a><a class="button subtle" href="/dashboard?section=administration#new-chore"><%= t("Create chore") %></a></nav><% } %>
 <section class="panel padded" aria-label="<%= t("Your points") %>"><h2><%= t("Your points") %></h2><p><strong><%= pointBalance.weekly_points %></strong> <%= t("this week ·") %> <strong><%= pointBalance.permanent_points %></strong> <%= t("permanent points") %></p><p class="muted small"><%= t("Weekly points transfer every Monday at midnight (Europe/Oslo). Missed deadlines deduct the chore value, even below zero.") %></p></section>
 <div class="stats">
 <div class="stat">
@@ -254,7 +255,7 @@
 <%= t(stats.total ? 'No chores match these filters. Try another view.' : isAdmin ? 'Assign the first chore and give everyone a little direction.' : 'Your assigned chores will appear here. Enjoy the breathing room.') %>
 </p>
 <% if(isAdmin && !stats.total) { %>
-<a class="text-link" href="#new-chore"><%= t("Create your first chore") %> <span>→</span>
+<a class="text-link" href="/dashboard?section=administration#new-chore"><%= t("Create your first chore") %> <span>→</span>
 </a>
 <% } %>
 </div>
@@ -349,9 +350,9 @@
 </section>
 </aside>
 </div>
-<% if(isAdmin) { %>
-<%- include('partials/chore-library') %>
 <% } %>
+<% if(section==='administration' && isAdmin) { %>
+<%- include('partials/administration') %>
 <% } %>
 <% if(section==='requests') { %>
 <div class="requests-layout">

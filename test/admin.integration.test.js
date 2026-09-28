@@ -475,7 +475,7 @@ test(
       assert.match(html, /Alex Member, New Member/);
     }
     const adminLibrary = await (
-      await fetch(base + "/dashboard?section=chores", {
+      await fetch(base + "/dashboard?section=administration", {
         headers: { Cookie: admin.cookie },
       })
     ).text();

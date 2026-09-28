@@ -187,18 +187,22 @@ function createApp({ db = pool, env = process.env } = {}) {
 
   app.get("/profile", requireAuth, (req, res) => res.redirect("/dashboard"));
   app.get("/admin", requireAuth, requireAdmin, (req, res) =>
-    res.redirect("/dashboard"),
+    res.redirect("/dashboard?section=administration"),
   );
 
   app.get("/dashboard", requireAuth, async (req, res) => {
     const user = req.session.user;
     const isAdmin = user.role === "admin";
-    const section = ["overview", "chores", "requests", "household"].includes(
-      req.query.section,
-    )
+    const section = [
+      "overview",
+      "chores",
+      "requests",
+      "household",
+      "administration",
+    ].includes(req.query.section)
       ? req.query.section
       : "overview";
-    if (section === "household" && !isAdmin)
+    if (["household", "administration"].includes(section) && !isAdmin)
       return res.status(403).send(res.locals.t("Forbidden"));
     const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(req.query.month || "")
       ? req.query.month
@@ -261,6 +265,38 @@ function createApp({ db = pool, env = process.env } = {}) {
       await db.query("SELECT * FROM member_points WHERE user_id=$1", [user.id])
     ).rows[0] || { weekly_points: 0, permanent_points: 0 };
     const activeUsers = users.filter((u) => !u.deleted_at);
+    const historyMember =
+      /^\d+$/.test(req.query.historyMember || "") &&
+      Number.isSafeInteger(Number(req.query.historyMember)) &&
+      Number(req.query.historyMember) <= 2147483647
+        ? req.query.historyMember
+        : "";
+    const historyPage = /^\d+$/.test(req.query.historyPage || "")
+      ? Math.max(1, Math.min(1000000, Number(req.query.historyPage)))
+      : 1;
+    let pointHistory = [],
+      historyCount = 0;
+    if (isAdmin && section === "administration") {
+      const filter = historyMember ? Number(historyMember) : null;
+      historyCount = Number(
+        (
+          await db.query(
+            "SELECT count(*) FROM point_ledger WHERE kind='admin_adjustment' AND ($1::int IS NULL OR user_id=$1)",
+            [filter],
+          )
+        ).rows[0].count,
+      );
+      pointHistory = (
+        await db.query(
+          `SELECT l.*, u.display_name AS member_name, a.display_name AS actor_name,
+        to_char(l.created_at AT TIME ZONE 'Europe/Oslo','YYYY-MM-DD HH24:MI:SS') AS edited_at
+        FROM point_ledger l JOIN users u ON u.id=l.user_id LEFT JOIN users a ON a.id=l.actor_id
+        WHERE l.kind='admin_adjustment' AND ($1::int IS NULL OR l.user_id=$1)
+        ORDER BY l.created_at DESC,l.id DESC LIMIT 50 OFFSET $2`,
+          [filter, (historyPage - 1) * 50],
+        )
+      ).rows;
+    }
     const allChores = choresResult.rows.map((c) => ({
       ...c,
       display_name: c.member_ids.length
@@ -319,6 +355,11 @@ function createApp({ db = pool, env = process.env } = {}) {
       view,
       users,
       activeUsers,
+      pointHistory,
+      historyMember,
+      historyPage,
+      historyCount,
+      adjustmentRequestId: crypto.randomUUID(),
       series,
       library,
       allChores,

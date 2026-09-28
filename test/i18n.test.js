@@ -33,11 +33,12 @@ test("populated member/admin views translate copy without changing user data or 
       return translator(language)(key, values);
     };
     for (const isAdmin of [false, true]) {
-      for (const section of ["overview", "chores", "requests", ...(isAdmin ? ["household"] : [])]) {
+      for (const section of ["overview", "chores", "requests", ...(isAdmin ? ["household", "administration"] : [])]) {
         const html = ejs.render(fs.readFileSync(path.join(__dirname, "../src/views/dashboard.ejs"), "utf8"), {
           t, language, languageReturnTo: "/dashboard", csrfToken: "test-token",
           formatDate: (value) => formatDate(value, language), isAdmin, section,
           user: { id: 1, displayName: "English" }, pointBalance: { weekly_points: 10, permanent_points: 20 },
+          pointHistory: [{member_name:'English',actor_name:'Admin',amount:-5,account_type:'weekly',balance_before:10,balance_after:5,reason:'Correction',edited_at:'2026-09-28 12:00:00'}], historyCount:1,historyPage:1,historyMember:'',adjustmentRequestId:'test-request',
           users: people, activeUsers: people.slice(0, 2),
           chores, allChores: chores, selectedMonth: "2026-09", today: "2026-09-28",
           view: "calendar", member: "", status: "all", days: calendarDays("2026-09"),
@@ -57,9 +58,10 @@ test("populated member/admin views translate copy without changing user data or 
           if (language === "nb") {
             assert.match(html, /Fullført etter fristen/);
             assert.match(html, /28\. sep\. 2026/);
-            if (isAdmin) assert.match(html, /Hver 2\. uke/);
+
           }
         }
+        if (section === "administration" && language === "nb") assert.match(html, /Hver 2\. uke/);
         if (section === "requests" && isAdmin) assert.match(html, /value="approved"/);
       }
     }

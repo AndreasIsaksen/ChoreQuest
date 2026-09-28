@@ -118,7 +118,8 @@ for (const role of ["admin", "member"]) {
     const dashboard = await authenticated.text();
     const newCsrf = token(dashboard);
     if (role === "admin") {
-      assert.match(dashboard, /Create a new chore/);
+      assert.match(dashboard, /Administration/);
+      assert.doesNotMatch(dashboard, /Save to library/);
       assert.match(dashboard, /Household admin/);
     } else {
       assert.doesNotMatch(dashboard, /Create a new chore/);

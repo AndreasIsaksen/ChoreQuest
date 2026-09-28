@@ -166,10 +166,88 @@ async function passwordHash(value) {
   return bcrypt.hash(value, 12);
 }
 function installAdmin(app, db, requireAdmin) {
-  const redirect = (req, res, message, section = "chores") => {
+  const redirect = (req, res, message, section = "administration") => {
     req.session.flash = message;
     res.redirect("/dashboard?section=" + section);
   };
+  app.post("/admin/points", requireAdmin, async (req, res) => {
+    const b = req.body;
+    if (
+      !["weekly", "permanent"].includes(b.accountType) ||
+      !["add", "withdraw"].includes(b.operation)
+    )
+      problem("Choose an account and adjustment action.");
+    const amount = points(b.amount);
+    if (!amount) problem("Enter at least one point.");
+    const reason = text(b.reason, "Reason", 500);
+    if (
+      typeof b.requestId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        b.requestId,
+      )
+    )
+      problem("Reload the administration page before adjusting points.");
+    await transaction(db, async (c) => {
+      await c.query("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE");
+      const target = await assignee(c, b.userId);
+      if (!target) problem("Choose an active account.");
+      const delta = b.operation === "add" ? amount : -amount;
+      const previous = (
+        await c.query("SELECT * FROM point_ledger WHERE request_id=$1", [
+          b.requestId,
+        ])
+      ).rows[0];
+      if (previous) {
+        if (
+          previous.user_id !== target ||
+          previous.actor_id !== req.session.user.id ||
+          previous.amount !== delta ||
+          previous.account_type !== b.accountType ||
+          previous.reason !== reason
+        )
+          problem(
+            "This adjustment was already submitted with different details. Reload the page.",
+            409,
+          );
+        return;
+      }
+      const balances = (
+        await c.query("SELECT * FROM member_points WHERE user_id=$1", [target])
+      ).rows[0];
+      const before = BigInt(
+        b.accountType === "weekly"
+          ? balances.weekly_points
+          : balances.permanent_points,
+      );
+      const after = before + BigInt(delta);
+      // Permanent adjustments use the previous settled week, keeping this week's bucket separate.
+      const week = (
+        await c.query(
+          "SELECT (date_trunc('week',$1::date)::date - CASE WHEN $2='permanent' THEN 7 ELSE 0 END)::text AS week",
+          [todayKey(), b.accountType],
+        )
+      ).rows[0].week;
+      await c.query(
+        "INSERT INTO point_ledger(user_id,kind,amount,week_start,actor_id,account_type,reason,balance_before,balance_after,request_id) VALUES($1,'admin_adjustment',$2,$3,$4,$5,$6,$7,$8,$9)",
+        [
+          target,
+          delta,
+          week,
+          req.session.user.id,
+          b.accountType,
+          reason,
+          before.toString(),
+          after.toString(),
+          b.requestId,
+        ],
+      );
+      await c.query(
+        "INSERT INTO point_accounts(user_id,week_start,balance,settled) VALUES($1,$2,$3,$4) ON CONFLICT(user_id,week_start) DO UPDATE SET balance=point_accounts.balance+EXCLUDED.balance,settled=point_accounts.settled OR EXCLUDED.settled",
+        [target, week, delta, b.accountType === "permanent"],
+      );
+    });
+    redirect(req, res, "Points adjusted and recorded in history.");
+  });
   // Removal keeps occurrence rows so cancelled recurring windows are never regenerated.
   for (const [route, table, scope] of [
     ["library", "chore_templates", "template_id"],

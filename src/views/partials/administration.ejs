@@ -1,0 +1,23 @@
+<nav class="chore-shortcuts" aria-label="<%= t('Administration tools') %>"><a class="button subtle" href="#point-accounts"><%= t('Member points') %></a><a class="button subtle" href="#point-history"><%= t('Adjustment history') %></a><a class="button subtle" href="#chore-library"><%= t('Chore builder') %></a></nav>
+<section class="panel form-panel" id="point-accounts">
+<div class="panel-heading"><div><span class="eyebrow"><%= t('ADMIN TOOLS') %></span><h2><%= t('Member points') %></h2><p class="muted"><%= t('Add or withdraw points from either account. Every adjustment requires a reason and is recorded below.') %></p></div></div>
+<div class="members-grid">
+<% activeUsers.forEach(person=>{ %><article class="member-card"><h3><%= person.display_name %></h3><p><strong><%= person.weekly_points %></strong> <%= t('weekly ·') %> <strong><%= person.permanent_points %></strong> <%= t('permanent points') %></p><a class="text-link" href="/dashboard?section=administration&historyMember=<%= person.id %>#point-history"><%= t('View adjustment history') %></a></article><% }) %>
+</div>
+<form method="post" action="/admin/points" class="form-grid">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="requestId" value="<%= adjustmentRequestId %>">
+<label><%= t('Member') %><select name="userId" required><option value=""><%= t('Choose a member') %></option><% activeUsers.forEach(person=>{ %><option value="<%= person.id %>"><%= person.display_name %></option><% }) %></select></label>
+<label><%= t('Point account') %><select name="accountType"><option value="weekly"><%= t('Weekly points') %></option><option value="permanent"><%= t('Permanent points') %></option></select></label>
+<label><%= t('Action') %><select name="operation"><option value="add"><%= t('Add points') %></option><option value="withdraw"><%= t('Withdraw points') %></option></select></label>
+<label><%= t('Amount') %><input type="number" name="amount" min="1" max="1000000" step="1" required></label>
+<label class="wide"><%= t('Reason') %><textarea name="reason" rows="2" maxlength="500" required></textarea></label>
+<p class="form-hint wide"><%= t('Weekly adjustments transfer to permanent points on Monday. Permanent adjustments take effect immediately. Withdrawals may make a balance negative.') %></p>
+<button class="button primary"><%= t('Save point adjustment') %></button>
+</form></section>
+<section class="panel" id="point-history"><div class="panel-heading"><div><h2><%= t('Adjustment history') %></h2><p class="muted"><%= t('Every admin point edit, with the member, administrator, reason and balance before and after. Times are shown in Europe/Oslo.') %></p></div></div>
+<form method="get" action="/dashboard#point-history" class="filters"><input type="hidden" name="section" value="administration"><label><%= t('Member') %><select name="historyMember"><option value=""><%= t('Everyone') %></option><% users.forEach(person=>{ %><option value="<%= person.id %>" <%= historyMember===String(person.id)?'selected':'' %>><%= person.display_name %></option><% }) %></select></label><button class="button subtle"><%= t('Apply filters') %></button></form>
+<% if(!pointHistory.length) { %><p class="padded muted"><%= t('No point adjustments match this view.') %></p><% } %>
+<% pointHistory.forEach(entry=>{ %><article class="request-card"><div class="request-title"><strong><%= entry.member_name %></strong><span class="badge <%= entry.amount>0?'completed':'overdue' %>"><%= entry.amount>0?'+':'' %><%= entry.amount %> <%= t('points') %></span></div><p><%= t(entry.account_type==='weekly'?'Weekly points':'Permanent points') %>: <strong><%= entry.balance_before %> → <%= entry.balance_after %></strong></p><p class="request-details"><%= entry.reason %></p><p class="muted small"><%= entry.edited_at %> · <%= t('By') %> <%= entry.actor_name || t('Deleted administrator') %></p></article><% }) %>
+<nav class="chore-shortcuts padded" aria-label="<%= t('History pages') %>"><% if(historyPage>1) { %><a class="button subtle" href="/dashboard?section=administration&historyMember=<%= historyMember %>&historyPage=<%= historyPage-1 %>#point-history"><%= t('Newer edits') %></a><% } %><span><%= t('Page {page} · {count} edits',{page:historyPage,count:historyCount}) %></span><% if(historyPage*50<historyCount) { %><a class="button subtle" href="/dashboard?section=administration&historyMember=<%= historyMember %>&historyPage=<%= historyPage+1 %>#point-history"><%= t('Older edits') %></a><% } %></nav>
+</section>
+<%- include('chore-library') %>
