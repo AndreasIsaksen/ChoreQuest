@@ -1,101 +1,221 @@
 # ChoreQuest
 
-A household chore application at the foundation-review stage. The executable prototype uses Node.js, Express, EJS, and PostgreSQL. Future development is planned around a mobile-first Blazor client and a layered ASP.NET Core backend.
+ChoreQuest is a household chore tracker with individual and shared tasks, recurring schedules, and a points system. Administrators manage the household and assign work; members track their chores, mark them complete, and request changes from a shared, responsive dashboard.
 
-Read the [foundation review](docs/foundation-review.md) for prioritized findings, requirement coverage, project boundaries, permissions, trade/deadline rules, calendars, notifications, and implementation acceptance gates. The [server assessment](docs/server-assessment.md) records the inspected Docker environment and database recommendation.
+The application runs on **Node.js, Express, EJS, and PostgreSQL**, with Docker Compose for installation. The interface supports **English and Norwegian Bokmål**, including a language preference remembered in the browser. There is no separate frontend build.
 
-## Current scope
+## What you can do
 
-The app now uses one shared login and dashboard for admins and members, with responsive navigation, chore cards, status filters, a month calendar, progress summaries, and request forms. Admins additionally see household-wide chores, member filters, the household roster, assignment tools, and request review. Members only see their own chores and requests; API guards enforce admin privileges. The `/admin` URL opens Administration after admin access checks; `/profile` redirects to the shared dashboard.
+- **Track chores:** use list and month-calendar views, progress summaries, and status filters. Administrators can also filter by member and see household-wide work.
+- **Build a chore library:** save reusable names, descriptions, and point values, then create one-off or recurring assignments. Library edits apply to new plans; existing assignments keep their saved details.
+- **Assign individual or co-op work:** individual tasks track each member separately; co-op tasks share completion across participants. One-off tasks can be left unassigned or without a deadline.
+- **Schedule recurring chores:** choose intervals in days, weeks, or months, with inclusive completion windows. Pause and resume schedules; missed periods are generated after downtime.
+- **Manage points:** completion awards points to each participant; missed deadlines incur a single deduction per participant. Weekly balances transfer into permanent balances on Monday in `Europe/Oslo`. Administrators can add or withdraw points with a reason and review adjustment history.
+- **Manage accounts:** administrators create members, reset passwords, change roles, and permanently delete accounts. There is no public registration.
+- **Handle requests:** members submit chore-change, deadline-change, or general requests; administrators review them and leave a note.
 
-Members and admins can switch between **English** and **Norsk (Norwegian Bokmål)** using the radio toggle on the login page and dashboard header. The choice takes effect immediately, preserves the current dashboard filters, and is remembered in that browser for one year, including after sign-out. English is the default. Interface labels, dates, statuses, validation messages, and admin tools are translated; household-entered names, chore descriptions, and request text stay as written. Without JavaScript, select a language and press **Apply language / Bruk språk**. Translations live in `src/locales/nb.json`, keyed by the corresponding English copy and shared across the existing views.
+## Current project state
 
-Actual chore trades, threaded conversations, weekly calendars, and notifications remain future work. This redesign uses the existing Express/EJS runtime; the planned Blazor migration is separate.
+This is a working prototype with automated tests, versioned database migrations, server-side role checks, chore ownership checks when submitting requests, CSRF protection, and session renewal on login. It remains best suited to local evaluation and controlled development.
 
-**Do not deploy this prototype for real use yet.** The review identifies authentication, request-ownership, and transaction issues. The HTTP session/CSRF bug is fixed with an explicit deployment setting described below; request-ownership and transactional approval findings remain. Replace fixed seed accounts before household deployment. The historical `password123` documentation does not match the seeded password hash.
+During the September 28, 2026 review, the Docker image built successfully and all 27 tests passed against a disposable PostgreSQL 16 database, with no skips. The administrator password setup below was also exercised. These checks do not establish production readiness.
 
-## Prepare Docker configuration
+The current source has progressed beyond the original [foundation review](docs/foundation-review.md): request decisions now run in a transaction, account management and points are implemented, and the dashboard has been redesigned. That document and the [server assessment](docs/server-assessment.md) are historical context, not a current feature checklist.
+
+Remaining limitations found in the current implementation:
+
+- Sessions use an in-memory store: restarting the web process signs everyone out, and sessions are not shared between multiple web instances.
+- Database initialization creates fixed seed accounts. There is no first-run account wizard; use the password setup below before signing in.
+- Request decisions can be changed repeatedly. Approval does not recheck the requester's current chore membership or restrict deadline edits to deadline-change requests.
+- Compose uses the same privileged database account for initialization, migrations, and application queries. Standalone startup also has fallback database credentials and a fallback session secret; explicitly configure your own values.
+- Actual chore trades, threaded conversations, weekly calendar views, and notifications are not implemented. The proposed Blazor/.NET rewrite has not been implemented.
+
+## Install with Docker Compose
+
+You need Git, Docker Engine with Docker Compose, and OpenSSL for generating secrets. The checked-in Dockerfile uses `node:20-alpine`; Compose uses `postgres:16-alpine`.
+
+### 1. Get the project
 
 ```bash
+git clone https://github.com/AndreasIsaksen/ChoreQuest.git
+cd ChoreQuest
 cp .env.example .env
 chmod 600 .env
 ```
 
-Set `SESSION_SECRET` and `DB_PASSWORD` to separate random values (generate each with `openssl rand -hex 32`). Set `WEB_PORT` to an available host port. `WEB_BIND_ADDRESS` defaults to loopback.
-
-For local HTTP accessed through an SSH tunnel, explicitly set `SESSION_COOKIE_SECURE=false` in the server `.env`. Keep `TRUST_PROXY` empty. From your computer, run:
+Generate two separate secrets:
 
 ```bash
-ssh -N -L 8095:127.0.0.1:8095 aragnaroth@10.230.1.208
+openssl rand -hex 32
+openssl rand -hex 32
 ```
 
-Then open <http://localhost:8095>. HTTP mode keeps HttpOnly, SameSite=Lax, and CSRF protection, but does not encrypt browser traffic itself; the SSH tunnel protects the remote connection. The server binding remains loopback.
+Edit `.env`: put one generated value in `SESSION_SECRET` and the other in `DB_PASSWORD`. For evaluation over HTTP on your own computer, use:
 
-For HTTPS, keep `SESSION_COOKIE_SECURE=true` (the default). If TLS terminates at a reverse proxy, set `TRUST_PROXY` to only that proxy's IP address or CIDR, and ensure the proxy overwrites forwarded headers. Empty `TRUST_PROXY` trusts no proxy. Invalid cookie-mode values fail startup. Do not enable blanket proxy trust or expose plain HTTP with passwords on a public network.
+```dotenv
+WEB_BIND_ADDRESS=127.0.0.1
+WEB_PORT=8095
+SESSION_COOKIE_SECURE=false
+TRUST_PROXY=
+```
 
-Compose passes these settings into the web container; recreate it after changes with `docker compose up -d --build web`. Login regenerates the session and CSRF token, saves the session before redirecting, and logout destroys it. Sessions still use the prototype's in-memory store, so restarting the web container signs users out.
+Keep the other database settings from `.env.example`. The `false` cookie setting is required for this local HTTP setup; otherwise the browser cannot retain the secure session cookie and login/form submissions fail.
+
+### 2. Build and start
 
 ```bash
 docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=50 web
 ```
 
-The web container always listens internally on port 3000; changing `WEB_PORT` changes only the published host port. PostgreSQL uses `db:5432` on the Compose network and publishes no host port. Database credentials are passed explicitly to the services; missing secrets stop Compose validation. `DB_HOST` and `DB_PORT` in the example are for standalone development; Compose fixes these to its dedicated database service.
+Wait for the web log to report `ChoreQuest running on port 3000`. Compose exposes that internal port at [http://localhost:8095](http://localhost:8095), or your chosen `WEB_PORT`.
 
-After resolving the review's deployment blockers, start with `docker compose up -d --build`. Database readiness gates web startup. Initialization SQL runs only on a new empty database volume; changing `.env` does not rotate an existing PostgreSQL password. Do not remove a data volume to apply schema changes—use migrations and backups.
+PostgreSQL stays on the internal Docker network and stores data in the `postgres_data` volume. On first installation, `db/init.sql` creates the base schema and seed users. The web process applies pending files from `db/migrations` at startup and records them in `schema_migrations`.
 
-Both Git and the Docker build context exclude real `.env` files and variants. Only the non-secret `.env.example` is tracked. Never paste `docker compose config` output containing resolved secrets into a ticket; use `--quiet` for validation.
+### 3. Set the administrator password
 
-## Development and tests
+A fresh database contains `admin`, `alex`, and `sam`. Do not assume a default password works. On a **fresh installation**, run this command to generate a new administrator password:
 
-The legacy app can be installed with `npm ci`; it requires a PostgreSQL database initialized from `db/init.sql`. `npm start` loads `.env` and uses port 3000 by default. Use the cookie mode appropriate to your HTTP or HTTPS setup as described above. Fixed seed hashes are prototype fixtures, not a production bootstrap mechanism.
+```bash
+docker compose exec -T web node <<'NODE'
+const crypto = require('node:crypto');
+const bcrypt = require('bcrypt');
+const db = require('./src/db');
+(async () => {
+  try {
+    const password = crypto.randomBytes(24).toString('base64url');
+    const hash = await bcrypt.hash(password, 12);
+    const result = await db.query(
+      "UPDATE users SET password_hash=$1, session_version=session_version+1 WHERE username='admin' AND role='admin' AND deleted_at IS NULL RETURNING id",
+      [hash],
+    );
+    if (result.rowCount !== 1) throw new Error('Active seed administrator not found');
+    console.log('Username: admin');
+    console.log('Password: ' + password);
+  } finally {
+    await db.end();
+  }
+})().catch(error => {
+  console.error(error.message);
+  process.exitCode = 1;
+});
+NODE
+```
+
+Store the printed password privately and sign in at [http://localhost:8095](http://localhost:8095). Running the command again changes the password and invalidates existing administrator sessions.
+
+Under **Household**, reset the passwords of `alex` and `sam` if you want to use them, or permanently delete those sample accounts. Create your household's accounts here as well. Passwords entered through the app must be at least 12 characters and no more than 72 bytes.
+
+### 4. Create your first chore
+
+Open **Administration**, add a chore to the **Chore library**, then use **Administer chore** to select participants, assignment type, and schedule. Creating a library entry alone does not assign work. Members see their assignments under **Chores** and can complete them once their start date arrives.
+
+## Configuration and remote access
+
+| Setting | Purpose |
+| --- | --- |
+| `SESSION_SECRET` | Session signing secret. Required by Compose; set explicitly for standalone use too. |
+| `DB_PASSWORD` | Database password. Required by Compose. |
+| `WEB_BIND_ADDRESS` / `WEB_PORT` | Compose host binding; defaults to `127.0.0.1:8095`. |
+| `SESSION_COOKIE_SECURE` | `true` by default for HTTPS; use `false` for explicit local HTTP. Only these two values are accepted. |
+| `TRUST_PROXY` | Comma-separated trusted proxy IPs/CIDRs; empty trusts no proxy. |
+| `DB_NAME` / `DB_USER` | Database name and login; both default to `chorequest`. |
+| `DB_HOST` / `DB_PORT` | Standalone database connection. Compose fixes these to `db:5432`. |
+| `PORT` | Standalone web port, default `3000`. Compose fixes the internal port to `3000`. |
+
+For a remote development server, leave the web binding on loopback and connect through an SSH tunnel, substituting your own user and host:
+
+```bash
+ssh -N -L 8095:127.0.0.1:8095 user@your-server
+```
+
+Then open `http://localhost:8095` on your computer with local HTTP cookie mode enabled on the server.
+
+For HTTPS behind a reverse proxy, set `SESSION_COOKIE_SECURE=true` and trust only the proxy's actual address/subnet in `TRUST_PROXY`. Configure the proxy to overwrite forwarded headers. The supplied Compose file does not provide TLS. Recreate the web container after configuration changes:
+
+```bash
+docker compose up -d --build web
+```
+
+## Run without Docker
+
+Install Node.js and npm (the container uses Node 20), PostgreSQL 16, and the PostgreSQL command-line tools. From the cloned repository:
+
+```bash
+npm ci
+cp .env.example .env
+chmod 600 .env
+```
+
+Using a PostgreSQL administrator account, create a login and database. For a local installation with peer authentication, for example:
+
+```bash
+sudo -u postgres createuser --pwprompt chorequest
+sudo -u postgres createdb --owner=chorequest chorequest
+psql -h 127.0.0.1 -U chorequest -d chorequest -W -f db/init.sql
+```
+
+Set `DB_HOST=127.0.0.1`, `DB_PORT=5432`, `DB_NAME=chorequest`, and `DB_USER=chorequest` in `.env`, with `DB_PASSWORD` matching the password you just chose. Set a random `SESSION_SECRET`, `SESSION_COOKIE_SECURE=false` for local HTTP, and optionally `PORT=3000`.
+
+```bash
+npm start
+```
+
+After migrations finish, run the first-login script above from the project root in another terminal, replacing its opening `docker compose exec -T web node <<'NODE'` line with `node -r dotenv/config <<'NODE'`. Open [http://localhost:3000](http://localhost:3000). Unlike the Compose loopback mapping, standalone startup does not specify a listen address; use appropriate network restrictions for local evaluation.
+
+## Tests
+
+With dependencies installed:
 
 ```bash
 npm test
 ```
 
-If Node is not installed locally, run the full suite in the built image:
+Or run tests in Docker:
 
 ```bash
 docker build -t chorequest-test .
 docker run --rm chorequest-test npm test
 ```
 
-The suite covers HTTP admin/member login, session/CSRF renewal, logout, invalid credentials, CSRF rejection, secure-cookie defaults, trusted/untrusted forwarding, and the existing date helpers. Authentication tests need dependencies: use `docker build -t chorequest-test .` followed by `docker run --rm chorequest-test npm test` for the full containerized suite. Passing tests does not establish full application readiness; see the remaining acceptance gates in the review.
+The default run covers authentication, sessions, CSRF, proxy/cookie configuration, language handling, rendered translations, and date helpers. PostgreSQL integration suites are skipped unless `TEST_DATABASE_URL` is set:
 
-## Admin chores and accounts
+```bash
+TEST_DATABASE_URL=postgres://test_user:test_password@127.0.0.1:5432/chorequest_test npm test
+```
 
-The **Chore library** permanently stores chore names and descriptions. Creating a chore only saves its definition. Use **Administer chore** to select members, assignment type, a one-off or recurring schedule, start date and deadline. Reuse the definition for new assignments without recreating it. Editing a library entry affects new assignments; existing tasks and schedules preserve their details and history. Existing chores are imported into the library during migration, combining identical names and descriptions.
+Use a **fresh, disposable database**, never the household database: integration tests create and modify accounts, chores, schedules, and point records. They initialize their schema themselves. These suites cover administration, recurring/co-op chores, deletion, points settlement, and manual point adjustments.
 
-**Individual** assignments create a separate task (or recurring schedule) for each selected member, with independent completion records: for example, everyone does their own laundry. **Co-op** assignments create one shared task for two or more selected members. All participants see the co-op label and group names in their feed. Any participant can complete or reopen the shared task for everyone. Submitting “complete” twice from separate browsers keeps it completed. Admin member filters and calendar views include shared chores. Nonparticipants cannot see, complete, or request changes to these tasks.
+## Updates and data
 
-Admins can also create unassigned one-off tasks, optionally without a deadline, then assign them later. Recurring chores use a start date and an interval of 1–365 days, weeks, or months. Each occurrence has an inclusive start/end window and can be completed once within that window; completing it does not change subsequent periods. Late completion is stored with its timestamp. Calendar views show the whole window. A future start date prevents early completion. To change a recurring schedule's timing or assignment type, pause it and create a new plan from its library entry.
+For an existing installation, back up PostgreSQL before updating code or applying migrations:
 
-For example, a two-week window starting Monday ends the second Sunday. Monthly boundaries remain anchored to the original date, so a January 31 start follows February 28/29 and March 31. New occurrences are generated at startup, every minute, and when loading a dashboard. Unique period keys and a PostgreSQL advisory lock prevent duplicates; after downtime, missing periods are created with their original deadlines. Schedules starting in the future appear under **Recurring schedules** until the first window begins. Pausing stops generation; resuming catches up missed windows. Schedule assignment changes affect future periods; individual chore assignment changes affect only that occurrence.
+```bash
+docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > chorequest-backup.sql
+git pull --ff-only
+docker compose up -d --build
+```
 
-The **Household** page lets admins create accounts, change display names/roles, reset passwords, and permanently delete members. Deletion requires typing the username and cannot be restored: it erases the live account, point balances and ledger, requests, individual chores and schedules, and all co-op participation history. Shared tasks remain for other participants with their points intact; empty groups are removed. The username becomes available for a new account with a new identity and no inherited history. Existing sessions lose access on their next request. An admin cannot delete or demote their own account, and at least one active admin must remain. Previously deactivated accounts can also be permanently deleted. Existing offline database backups are not rewritten by account deletion.
+Keep backups private and verify restoration in a separate database. Startup migrations run automatically; `db/init.sql` runs only when the database volume is empty. Changing `DB_PASSWORD` in `.env` does not rotate an existing database's password.
 
-Admins can delete a **library chore** and all its assignments/schedules, a **recurring schedule** and its tasks, or just one **task**. Each action requires typing the chore name and explains its scope. Completed and already-overdue tasks retain their membership, calendar record, and points under **Removed** status. Other tasks disappear immediately and never incur later overdue deductions. Removed records cannot be completed, reopened, reassigned, or changed through requests. Active progress counts exclude removed chores; the **Removed** filter shows preserved history. Completed chores without a deadline appear on their completion date. Recurrence cursors prevent deleted periods from being regenerated, including after permanent member deletion.
+`docker compose down` stops the application and retains its data volume. **Do not add `-v` unless you intend to erase the database.** Permanent member deletion also erases that member's requests, point balances, ledger, and participation history; existing backup files are not changed.
 
-Schema changes in `db/migrations` are applied transactionally at startup and recorded in `schema_migrations`. Back up existing databases before deploying. Integration tests must run only against a disposable database: `TEST_DATABASE_URL=postgres://... npm test` creates fixture users and changes test data. Without this variable, database integration tests are skipped.
+Removing chores preserves completed and already-overdue history under **Removed** status. Other removed tasks disappear and do not incur future penalties. Late completion earns the normal points award while retaining any missed-deadline deduction; reopening reverses the completion award.
 
-## Member points
+## Repository layout
 
-Admins set a nonnegative whole-number **Points per member** value (0–1,000,000) in the chore library, including **Administer chore**. Each assignment and recurring schedule retains its saved value; changing the library applies to new plans. Existing library entries, tasks, and schedules start at zero, so deployment does not award or charge points retroactively. Create a new plan with a point value to start scoring it.
-
-Members see their weekly and permanent balances on the overview and chores pages; admins also see each member’s balances under Household. Completing a task awards its value to each assigned member, including every co-op participant. Repeated completion submissions do not award extra points. Reopening reverses the completion award in the current week.
-
-An unfinished task receives one deduction per assignee after its inclusive due date. There is no repeated daily charge. Undated and unassigned tasks incur no deduction. Late completion earns the normal award while retaining the missed-deadline charge. Changing an already missed deadline does not erase its penalty.
-
-Weeks run Monday through Sunday in **Europe/Oslo**, including daylight-saving changes. At the Sunday-to-Monday boundary, the closing weekly balance moves into the permanent account and the new weekly balance starts at zero. Negative balances are supported in both accounts. A Sunday deadline’s penalty belongs to the closing week. Processing runs at startup, every minute, and before dashboard reads and chore/account changes; catch-up after downtime charges missed occurrences to their original weeks. Settlement may run up to a minute after midnight, and dashboard loading settles before showing balances.
-
-The append-only points ledger records awards, reversals, and deductions. Weekly account buckets are retained and marked settled on transfer; permanent balances sum settled buckets. Transactions, an advisory lock, and a unique overdue-charge key protect against duplicate processing. Chore removal preserves point history; permanent member deletion erases that member’s ledger and balances.
-
-## Administration and point adjustments
-
-The admin-only **Administration** page (`/dashboard?section=administration`, also reached from `/admin`) contains the chore builder/library, recurring schedules, member point balances, and adjustment history. The shared chore feed links to this space instead of embedding the builder.
-
-Admins can add or withdraw 1–1,000,000 whole points from a member's weekly or permanent account, with a required reason. Withdrawals may produce a negative balance. Weekly adjustments join the current week's bucket and transfer normally on Monday; permanent adjustments enter a settled bucket immediately and do not change the weekly balance.
-
-Each manual adjustment is recorded in the points ledger with its target member, administrator, account type, signed amount, timestamp, reason, and balance before/after. The history shows all members by default, supports a single-member filter, and paginates through all edits in groups of 50. A form submission ID prevents retries from applying the same adjustment twice. The ledger and balance update commit together under the existing points transaction lock.
-
-Permanent member deletion also removes that member's adjustment history. When an administrator is deleted, their identity on other members' adjustment entries is anonymised; those members' points and history remain intact. Correct mistakes through a new adjustment instead of editing a previous log entry.
+```text
+src/server.js       Express routes, authentication, dashboard, maintenance loop
+src/admin.js        Account, chore, schedule, and point administration
+src/views/          EJS pages and partials
+src/public/         Browser JavaScript and CSS
+src/locales/        Norwegian translations
+src/migrate.js      Transactional migration runner
+src/db.js           PostgreSQL connection pool
+db/init.sql        Initial schema and seed accounts
+db/migrations/     Versioned schema and database functions
+test/              Node test runner suites
+docs/              Historical architecture and server assessments
+```
