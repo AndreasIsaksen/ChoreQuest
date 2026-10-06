@@ -304,6 +304,14 @@
 </span>
 <% } %>
 </div>
+<% if(isAdmin && !c.removed_at && c.member_ids.length) { %>
+<details class="decision"><summary><%= t("Change chore status") %></summary>
+<form method="post" action="/admin/chores/<%= c.id %>/status" class="stack">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label><%= t("Status") %><select name="completed"><option value="true" <%= c.completed?'selected':'' %>><%= t("Done") %></option><option value="false" <%= !c.completed?'selected':'' %>><%= t("Not done") %></option></select></label>
+<p class="form-hint"><%= t("Updates points for every participant. Past deductions are balanced in this week’s points.") %></p>
+<button class="button subtle"><%= t("Save status") %></button></form></details>
+<% } %>
 <% if(isAdmin && !c.completed && !c.removed_at) { %><details class="decision"><summary><%= t("Manage assignment") %></summary><form method="post" action="/admin/chores/<%= c.id %>/assign" class="stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <%- include('partials/assignees',{people:activeUsers,selected:c.member_ids,multiple:c.cooperative}) %>
 <button class="button subtle"><%= t("Save assignment") %></button><p class="form-hint"><%= t("Changes this task only. Co-op completion is shared by all participants.") %></p></form></details><% } %>

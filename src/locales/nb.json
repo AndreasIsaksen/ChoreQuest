@@ -343,5 +343,11 @@
   "Reload the administration page before adjusting points.": "Last administrasjonssiden på nytt før du endrer poeng.",
   "This adjustment was already submitted with different details. Reload the page.": "Denne endringen er allerede sendt med andre detaljer. Last siden på nytt.",
   "Reason is required (maximum 500 characters).": "Begrunnelse er påkrevd (maksimalt 500 tegn).",
-  "ADMIN TOOLS": "ADMINISTRASJONSVERKTØY"
+  "ADMIN TOOLS": "ADMINISTRASJONSVERKTØY",
+  "Change chore status": "Endre oppgavestatus",
+  "Not done": "Ikke fullført",
+  "Save status": "Lagre status",
+  "Updates points for every participant. Past deductions are balanced in this week’s points.": "Oppdaterer poengene for alle deltakere. Tidligere trekk utlignes i denne ukens poeng.",
+  "Chore status and points updated.": "Oppgavestatus og poeng er oppdatert.",
+  "Choose an assigned chore.": "Velg en tildelt oppgave."
 }

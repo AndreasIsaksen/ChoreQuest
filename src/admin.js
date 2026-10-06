@@ -170,6 +170,24 @@ function installAdmin(app, db, requireAdmin) {
     req.session.flash = message;
     res.redirect("/dashboard?section=" + section);
   };
+  app.post("/admin/chores/:id/status", requireAdmin, async (req, res) => {
+    if (!["true", "false"].includes(req.body.completed))
+      problem("Invalid completion state.");
+    const choreId = id(req.params.id);
+    await transaction(db, async (c) => {
+      const chore = (await c.query(
+        "SELECT * FROM chores WHERE id=$1 AND removed_at IS NULL FOR UPDATE",
+        [choreId],
+      )).rows[0];
+      if (!chore) problem("Chore not found.", 404);
+      if (!(await c.query("SELECT 1 FROM chore_members WHERE chore_id=$1", [choreId])).rowCount)
+        problem("Choose an assigned chore.", 409);
+      await c.query("SELECT set_admin_chore_status($1,$2,$3,$4::date)", [
+        choreId, req.body.completed === "true", req.session.user.id, todayKey(),
+      ]);
+    });
+    redirect(req, res, "Chore status and points updated.", "chores");
+  });
   app.post("/admin/points", requireAdmin, async (req, res) => {
     const b = req.body;
     if (
