@@ -1,0 +1,10 @@
+<details class="notification-settings"><summary><%= t('Push notification settings') %></summary>
+<p class="muted"><%= t('{count} registered devices', {count:person.push_devices || 0}) %></p>
+<form method="post" action="/admin/users/<%= person.id %>/notifications" class="stack">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<% for (const [key,label] of [['notify_due','One hour before a chore is overdue'],['notify_assignment','Manual chore assignments'],['notify_requests','Requests and approvals']]) { %>
+<label class="notification-option"><input type="checkbox" name="<%= key %>" value="true" <%= person[key] !== false ? 'checked' : '' %>> <%= t(label) %></label>
+<% } %>
+<p class="form-hint"><%= t('Members must allow notifications on each device. Due-date reminders arrive at 23:00 Europe/Oslo.') %></p>
+<button class="button subtle"><%= t('Save notification settings') %></button>
+</form></details>

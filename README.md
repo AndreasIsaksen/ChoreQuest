@@ -28,7 +28,7 @@ Remaining limitations found in the current implementation:
 - Database initialization creates fixed seed accounts. There is no first-run account wizard; use the password setup below before signing in.
 - Request decisions can be changed repeatedly. Approval does not recheck the requester's current chore membership or restrict deadline edits to deadline-change requests.
 - Compose uses the same privileged database account for initialization, migrations, and application queries. Standalone startup also has fallback database credentials and a fallback session secret; explicitly configure your own values.
-- Actual chore trades, threaded conversations, weekly calendar views, and notifications are not implemented. The proposed Blazor/.NET rewrite has not been implemented.
+- Actual chore trades, threaded conversations, and weekly calendar views are not implemented. The proposed Blazor/.NET rewrite has not been implemented.
 
 ## Install with Docker Compose
 
@@ -219,3 +219,15 @@ db/migrations/     Versioned schema and database functions
 test/              Node test runner suites
 docs/              Historical architecture and server assessments
 ```
+
+## Push notifications
+
+Generate a stable VAPID key pair with `npx web-push generate-vapid-keys` (or `docker compose run --rm web npx web-push generate-vapid-keys`). Set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` (a contact URI such as `mailto:admin@example.com`) in `.env`, then recreate the web container. Keep the private key private and retain both keys across restarts. Without these settings push is disabled; the rest of the application works normally.
+
+Members choose **Enable notifications on this device** on the dashboard and grant browser permission. Repeat on each device. Web Push requires HTTPS (localhost is permitted for development). On iPhone/iPad, add the app to the Home Screen before enabling notifications. Admin settings cannot grant browser permission.
+
+Under **Administration → Member points**, each member card has **Push notification settings** and a registered-device count. All three categories default to enabled for existing and new accounts: one-hour reminders, manual assignments, and requests/approvals. Date-only deadlines expire at midnight after the due date in Europe/Oslo, so reminders are queued at 23:00 on that date, including daylight-saving changes. The maintenance worker checks each minute; completed, removed, unassigned, and undated chores receive no reminders. It does not send late reminders after downtime.
+
+Manual assignments (including recurring plans) notify the assigned members. Requests may name an optional recipient, who sees the request and receives a notification. All active admins receive approval alerts. Approval notifies the requester and optional recipient; saving an already-approved decision again does not notify twice. This does not implement chore trades.
+
+Notifications are queued transactionally, delivered to all registered devices, and retried up to five times for temporary failures. Expired browser subscriptions are removed; deadline notifications expire at the deadline and other events after one day. Disabled preferences are checked again before delivery. Push services and device settings determine final delivery; reminders are best effort. On shared browsers, an existing subscription follows the most recently signed-in account; pending notifications for the previous account are cleared. Disable device notifications before sharing a device if you want no notifications after logout.

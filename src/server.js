@@ -13,6 +13,11 @@ const { dateKey, formatDate, calendarDays, todayKey } = require("./helpers");
 const { translator, languageFromCookie, languageReturnTo } = require("./i18n");
 
 function createApp({ db = pool, env = process.env } = {}) {
+  const {
+    createNotifications,
+    installNotifications,
+  } = require("./notifications");
+  const notifications = createNotifications(db, env);
   const app = express();
   const secureSetting = env.SESSION_COOKIE_SECURE ?? "true";
   if (!["true", "false"].includes(secureSetting)) {
@@ -35,6 +40,11 @@ function createApp({ db = pool, env = process.env } = {}) {
   app.set("views", path.join(__dirname, "views"));
 
   app.use("/assets", express.static(path.join(__dirname, "public")));
+  app.get("/sw.js", (req, res) => {
+    res.set("Cache-Control", "no-cache");
+    res.sendFile(path.join(__dirname, "public", "sw.js"));
+  });
+  app.use(express.json({ limit: "16kb" }));
   app.use(express.urlencoded({ extended: false }));
   app.use((req, res, next) => {
     const language = languageFromCookie(req.headers.cookie);
@@ -236,14 +246,15 @@ function createApp({ db = pool, env = process.env } = {}) {
     );
     const requestsResult = await db.query(
       `SELECT r.*, to_char(r.proposed_due_date, 'YYYY-MM-DD') AS proposed_due_date, u.display_name,
-       c.title AS chore_title FROM chore_requests r JOIN users u ON u.id = r.user_id
-       LEFT JOIN chores c ON c.id = r.chore_id ${isAdmin ? "" : "WHERE r.user_id = $1"} ORDER BY r.created_at DESC`,
+       recipient.display_name AS recipient_name, c.title AS chore_title FROM chore_requests r JOIN users u ON u.id = r.user_id
+       LEFT JOIN users recipient ON recipient.id=r.recipient_id
+       LEFT JOIN chores c ON c.id = r.chore_id ${isAdmin ? "" : "WHERE r.user_id = $1 OR r.recipient_id = $1"} ORDER BY r.created_at DESC`,
       isAdmin ? [] : [user.id],
     );
     const users = isAdmin
       ? (
           await db.query(
-            "SELECT u.id, username, display_name, role, deleted_at, p.weekly_points, p.permanent_points FROM users u JOIN member_points p ON p.user_id=u.id ORDER BY deleted_at NULLS FIRST, display_name",
+            "SELECT u.id, username, display_name, role, deleted_at, notify_due, notify_assignment, notify_requests, (SELECT count(*) FROM push_subscriptions s WHERE s.user_id=u.id) AS push_devices, p.weekly_points, p.permanent_points FROM users u JOIN member_points p ON p.user_id=u.id ORDER BY deleted_at NULLS FIRST, display_name",
           )
         ).rows
       : [];
@@ -355,6 +366,12 @@ function createApp({ db = pool, env = process.env } = {}) {
       view,
       users,
       activeUsers,
+      requestMembers: (
+        await db.query(
+          "SELECT id, display_name FROM users WHERE deleted_at IS NULL AND id<>$1 ORDER BY display_name",
+          [user.id],
+        )
+      ).rows,
       pointHistory,
       historyMember,
       historyPage,
@@ -396,7 +413,22 @@ function createApp({ db = pool, env = process.env } = {}) {
   });
 
   app.post("/requests", requireAuth, async (req, res) => {
-    const { choreId, requestType, details, proposedDueDate } = req.body;
+    const { choreId, requestType, details, proposedDueDate, recipientId } =
+      req.body;
+    const proposed = date(proposedDueDate);
+    if (
+      recipientId &&
+      (!/^\d+$/.test(recipientId) ||
+        Number(recipientId) > 2147483647 ||
+        Number(recipientId) === req.session.user.id ||
+        !(
+          await db.query(
+            "SELECT id FROM users WHERE id=$1 AND deleted_at IS NULL",
+            [recipientId],
+          )
+        ).rowCount)
+    )
+      problem("Choose an active account.");
     if (
       !["different_chore", "due_date_change", "other"].includes(requestType) ||
       typeof details !== "string" ||
@@ -418,14 +450,15 @@ function createApp({ db = pool, env = process.env } = {}) {
           );
     }
     await db.query(
-      `INSERT INTO chore_requests (user_id, chore_id, request_type, details, proposed_due_date)
-       VALUES ($1, NULLIF($2, '')::INT, $3, $4, NULLIF($5, '')::DATE)`,
+      `INSERT INTO chore_requests (user_id, chore_id, request_type, details, proposed_due_date, recipient_id)
+       VALUES ($1, NULLIF($2, '')::INT, $3, $4, $5::DATE, $6::INT)`,
       [
         req.session.user.id,
         choreId || "",
         requestType,
         details,
-        proposedDueDate || "",
+        proposed,
+        recipientId || null,
       ],
     );
     req.session.flash = "Your change has been saved.";
@@ -433,6 +466,7 @@ function createApp({ db = pool, env = process.env } = {}) {
   });
 
   installAdmin(app, db, requireAdmin);
+  installNotifications(app, db, requireAuth, requireAdmin, notifications);
 
   app.post("/admin/requests/:id", requireAdmin, async (req, res) => {
     const { status, adminNote, approvedDueDate } = req.body;
@@ -503,8 +537,16 @@ if (require.main === module) {
         ]);
         await c.query("SELECT process_points($1::date)", [todayKey()]);
       });
+    const notifications = require("./notifications").createNotifications(pool);
     await maintain();
-    const timer = setInterval(() => maintain().catch(console.error), 60000);
+    await notifications.maintain();
+    const timer = setInterval(
+      () =>
+        maintain()
+          .then(() => notifications.maintain())
+          .catch(console.error),
+      60000,
+    );
     timer.unref();
     const port = Number(process.env.PORT || 3000);
     createApp().listen(port, () =>

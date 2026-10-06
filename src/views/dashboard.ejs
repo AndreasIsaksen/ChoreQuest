@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>
 <%= t({overview:'Overview',chores:'Chores',requests:'Requests',household:'Household',administration:'Administration'}[section]) %> · ChoreQuest</title>
+<link rel="manifest" href="/assets/manifest.json">
 <link rel="stylesheet" href="/assets/app.css">
+<script src="/assets/push.js" defer></script>
 <script src="/assets/app.js" defer>
 </script>
 </head>
@@ -391,7 +393,7 @@
 <%= t(r.status) %>
 </span>
 <small>
-<%= isAdmin?r.display_name:t('Your request') %>
+<%= isAdmin || r.user_id !== user.id ? r.display_name : t('Your request') %><% if(r.recipient_name) { %> → <%= r.recipient_name %><% } %>
 </small>
 </div>
 <h3>
@@ -457,6 +459,7 @@
 </div>
 <form action="/requests" method="post" class="stack padded">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label><%= t("Send to member (optional)") %><select name="recipientId"><option value=""><%= t("No recipient") %></option><% (typeof requestMembers !== "undefined" ? requestMembers : activeUsers).filter(p=>p.id!==user.id).forEach(p=>{ %><option value="<%= p.id %>"><%= p.display_name %></option><% }) %></select></label>
 <label><%= t("What would help?") %><select name="requestType" required>
 <% Object.entries(requestLabels).forEach(([value,label])=>{ %>
 <option value="<%= value %>">
@@ -502,6 +505,7 @@
 </span>
 <span><%= t("Less chasing. More living.") %></span>
 </footer>
+<section class="panel padded" id="push-device" data-csrf="<%= csrfToken %>"><h3><%= t("Device notifications") %></h3><p data-push-status role="status" aria-live="polite"></p><button type="button" class="button subtle" data-push-enable><%= t("Enable notifications on this device") %></button> <button type="button" class="button subtle" data-push-disable hidden><%= t("Disable notifications on this device") %></button></section>
 </main>
 </div>
 </div>

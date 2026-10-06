@@ -2,7 +2,7 @@
 <section class="panel form-panel" id="point-accounts">
 <div class="panel-heading"><div><span class="eyebrow"><%= t('ADMIN TOOLS') %></span><h2><%= t('Member points') %></h2><p class="muted"><%= t('Add or withdraw points from either account. Every adjustment requires a reason and is recorded below.') %></p></div></div>
 <div class="members-grid">
-<% activeUsers.forEach(person=>{ %><article class="member-card"><h3><%= person.display_name %></h3><p><strong><%= person.weekly_points %></strong> <%= t('weekly ·') %> <strong><%= person.permanent_points %></strong> <%= t('permanent points') %></p><a class="text-link" href="/dashboard?section=administration&historyMember=<%= person.id %>#point-history"><%= t('View adjustment history') %></a></article><% }) %>
+<% activeUsers.forEach(person=>{ %><article class="member-card"><h3><%= person.display_name %></h3><p><strong><%= person.weekly_points %></strong> <%= t('weekly ·') %> <strong><%= person.permanent_points %></strong> <%= t('permanent points') %></p><a class="text-link" href="/dashboard?section=administration&historyMember=<%= person.id %>#point-history"><%= t('View adjustment history') %></a><%- include("notification-settings", {person}) %></article><% }) %>
 </div>
 <form method="post" action="/admin/points" class="form-grid">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="requestId" value="<%= adjustmentRequestId %>">
