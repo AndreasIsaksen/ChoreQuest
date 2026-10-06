@@ -2,6 +2,7 @@
 <html lang="<%= language %>">
 <head>
 <meta charset="UTF-8">
+<script src="/assets/theme.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><%= t("Welcome back · ChoreQuest") %></title>
 <link rel="stylesheet" href="/assets/app.css">
@@ -46,7 +47,7 @@
 </section>
 <section class="login-panel">
 <div class="login-form">
-<%- include('partials/language-switch') %>
+<div class="login-actions"><%- include('partials/language-switch') %><%- include('partials/theme-toggle') %></div>
 <span class="eyebrow"><%= t("YOUR HOUSEHOLD, IN HARMONY") %></span>
 <h2><%= t("Welcome home.") %></h2>
 <p class="muted"><%= t("Sign in to see what’s on the agenda.") %></p>

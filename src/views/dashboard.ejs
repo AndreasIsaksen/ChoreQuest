@@ -2,6 +2,7 @@
 <html lang="<%= language %>">
 <head>
 <meta charset="UTF-8">
+<script src="/assets/theme.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>
 <%= t({overview:'Overview',chores:'Chores',requests:'Requests',household:'Household',administration:'Administration'}[section]) %> · ChoreQuest</title>
@@ -69,6 +70,7 @@
 </aside>
 <div class="workspace">
 <header class="topbar">
+<%- include('partials/theme-toggle') %>
 <%- include('partials/language-switch') %>
 <div class="breadcrumb"><%= t("Your household") %> <span>/</span> <strong>
 <%= t({overview:'Overview',chores:'Chores',requests:'Requests',household:'Household',administration:'Administration'}[section]) %>

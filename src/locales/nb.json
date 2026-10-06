@@ -367,5 +367,7 @@
   "A chore request needs approval.": "En oppgaveforespørsel trenger godkjenning.",
   "You have received a chore request.": "Du har mottatt en oppgaveforespørsel.",
   "Your chore request has been approved.": "Oppgaveforespørselen din er godkjent.",
-  "A chore is due in one hour.": "En oppgave har frist om én time."
+  "A chore is due in one hour.": "En oppgave har frist om én time.",
+  "Switch to dark mode": "Bytt til mørk modus",
+  "Switch to light mode": "Bytt til lys modus"
 }
