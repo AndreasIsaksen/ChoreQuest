@@ -1774,3 +1774,25 @@ textarea::placeholder {
 @media (max-width: 599px) { .nav-item > span:not(.nav-count) { overflow-wrap: anywhere; text-align: center; } }
 .admin-nav-short { display: none; }
 @media (max-width: 599px) { .admin-nav-full { display: none; } .admin-nav-short { display: inline; } }
+
+.notification-settings {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.notification-settings summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.notification-settings .notification-option {
+  flex-direction: row;
+  align-items: center;
+  text-align: left;
+}
+.notification-option input {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  flex-shrink: 0;
+}
