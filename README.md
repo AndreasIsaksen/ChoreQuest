@@ -202,7 +202,7 @@ Keep backups private and verify restoration in a separate database. Startup migr
 
 `docker compose down` stops the application and retains its data volume. **Do not add `-v` unless you intend to erase the database.** Permanent member deletion also erases that member's requests, point balances, ledger, and participation history; existing backup files are not changed.
 
-Removing chores preserves completed and already-overdue history under **Removed** status. Other removed tasks disappear and do not incur future penalties. Late completion earns the normal points award while retaining any missed-deadline deduction; reopening reverses the completion award.
+Removing chores preserves completed and already-overdue history under **Removed** status. Other removed tasks disappear and do not incur future penalties. Member late completion earns the normal points award while retaining any missed-deadline deduction. Administrators can use **Change chore status** on assigned chores to set **Done** or **Not done**, including after the deadline. Setting Done corrects the net chore points to the full reward: a previously deducted 10-point chore receives 20 points in the current week, balancing the deduction already transferred to the permanent bank. Setting Not done reverses awards and compensation, retaining the overdue deduction where applicable. Co-op status changes apply to every participant; repeated saves do not award extra points.
 
 ## Repository layout
 
