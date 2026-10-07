@@ -118,6 +118,8 @@ Choose **Selected weekdays** when administering a library chore to repeat on spe
 
 The optional **Due time** applies to one-off chores, interval schedules and weekday schedules. For example, `14:00` means 14:00 in Europe/Oslo on the due date, including daylight-saving changes. Interval chores use that time on the last day of each completion window; weekday chores are due on their selected day. Leave the time blank for the existing end-of-day deadline. Overdue status, points deductions, late completion labels and one-hour reminders all use the chosen time.
 
+In **Administer chore**, check **Set individual points for each member** to replace the shared points field with a points input beside each selected member. These values apply to that assignment, including future recurring tasks, while keeping the library default. Co-op chores still complete together, but each participant earns or loses their own assigned points. Zero points are allowed. Turn the option off to use the shared value again.
+
 ## Configuration and remote access
 
 | Setting | Purpose |

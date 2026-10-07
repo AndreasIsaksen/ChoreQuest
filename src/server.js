@@ -237,7 +237,10 @@ function createApp({ db = pool, env = process.env } = {}) {
     });
     const choresResult = await db.query(
       `SELECT c.id, c.user_id, c.title, c.description, to_char(c.due_date, 'YYYY-MM-DD') AS due_date,
-       c.points, c.removed_at, c.completed, c.due_time, chore_deadline(c.due_date,c.due_time)<=now() AS overdue, to_char(COALESCE(c.due_date, (c.completed_at AT TIME ZONE 'Europe/Oslo')::date, CASE WHEN c.completed THEN (c.created_at AT TIME ZONE 'Europe/Oslo')::date END), 'YYYY-MM-DD') AS calendar_date, (c.completed AND c.completed_at > chore_deadline(c.due_date,c.due_time)) AS completed_late, c.series_id, c.cooperative, c.template_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at,
+       ${isAdmin ? "c.points" : "(SELECT m.points FROM chore_member_points m WHERE m.chore_id=c.id AND m.user_id=$1)"} AS points,
+       EXISTS(SELECT 1 FROM chore_participants p WHERE p.chore_id=c.id AND p.points IS NOT NULL) AS custom_points,
+       (SELECT jsonb_agg(jsonb_build_object('name',u.display_name,'points',m.points) ORDER BY u.display_name) FROM chore_member_points m JOIN users u ON u.id=m.user_id WHERE m.chore_id=c.id) AS point_rewards,
+       c.removed_at, c.completed, c.due_time, chore_deadline(c.due_date,c.due_time)<=now() AS overdue, to_char(COALESCE(c.due_date, (c.completed_at AT TIME ZONE 'Europe/Oslo')::date, CASE WHEN c.completed THEN (c.created_at AT TIME ZONE 'Europe/Oslo')::date END), 'YYYY-MM-DD') AS calendar_date, (c.completed AND c.completed_at > chore_deadline(c.due_date,c.due_time)) AS completed_late, c.series_id, c.cooperative, c.template_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at,
        COALESCE((SELECT string_agg(u.display_name, ', ' ORDER BY u.display_name) FROM chore_members m JOIN users u ON u.id=m.user_id WHERE m.chore_id=c.id),'Unassigned') AS display_name,
        ARRAY(SELECT m.user_id FROM chore_members m WHERE m.chore_id=c.id) AS member_ids
        FROM chores c
@@ -260,7 +263,10 @@ function createApp({ db = pool, env = process.env } = {}) {
       : [];
     const series = (
       await db.query(
-        `SELECT s.*, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on,
+        `SELECT s.*, ${isAdmin ? "s.points" : "COALESCE((SELECT p.points FROM series_participants p WHERE p.series_id=s.id AND p.user_id=$1),s.points)"} AS points,
+             EXISTS(SELECT 1 FROM series_participants p WHERE p.series_id=s.id AND p.points IS NOT NULL) AS custom_points,
+             (SELECT jsonb_agg(jsonb_build_object('name',u.display_name,'points',COALESCE(p.points,s.points)) ORDER BY u.display_name) FROM series_members m JOIN users u ON u.id=m.user_id LEFT JOIN series_participants p ON p.series_id=m.series_id AND p.user_id=m.user_id WHERE m.series_id=s.id) AS point_rewards,
+             to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on,
              to_char(CASE WHEN s.weekdays IS NULL THEN s.starts_on ELSE
                (SELECT min(day::date) FROM generate_series(greatest(s.starts_on,(now() AT TIME ZONE 'Europe/Oslo')::date)::timestamp,
                greatest(s.starts_on,(now() AT TIME ZONE 'Europe/Oslo')::date)::timestamp+interval '6 days',interval '1 day') day

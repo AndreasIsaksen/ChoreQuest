@@ -68,6 +68,18 @@ async function participants(db, body) {
 }
 async function assignChore(c, template, b) {
   const members = await participants(c, b);
+  if (b.individualPoints !== undefined && b.individualPoints !== "true")
+    problem("Invalid individual points option.");
+  const individualPoints = b.individualPoints === "true";
+  const memberPoints = new Map();
+  if (individualPoints) {
+    if (!members.length) problem("Choose members when setting individual points.");
+    for (const member of members) {
+      const value = b[`memberPoints_${member}`];
+      if (value === undefined) problem("Enter points for each selected member.");
+      memberPoints.set(member, points(value));
+    }
+  }
   const mode = b.mode || "individual";
   if (!["individual", "cooperative"].includes(mode))
     problem("Choose an assignment type.");
@@ -121,7 +133,7 @@ async function assignChore(c, template, b) {
             unit,
             template.id,
             cooperative,
-            template.points,
+            individualPoints && !cooperative ? memberPoints.get(member) : template.points,
             weekdays,
             dueTime,
           ],
@@ -136,7 +148,7 @@ async function assignChore(c, template, b) {
             due,
             template.id,
             cooperative,
-            template.points,
+            individualPoints && !cooperative ? memberPoints.get(member) : template.points,
             dueTime,
           ],
         );
@@ -144,9 +156,9 @@ async function assignChore(c, template, b) {
       for (const person of members) {
         await c.query(
           recurring
-            ? "INSERT INTO series_participants(series_id,user_id) VALUES($1,$2)"
-            : "INSERT INTO chore_participants(chore_id,user_id) VALUES($1,$2)",
-          [row.rows[0].id, person],
+            ? "INSERT INTO series_participants(series_id,user_id,points) VALUES($1,$2,$3)"
+            : "INSERT INTO chore_participants(chore_id,user_id,points) VALUES($1,$2,$3)",
+          [row.rows[0].id, person, individualPoints ? memberPoints.get(person) : null],
         );
       }
     }
@@ -367,7 +379,7 @@ function installAdmin(app, db, requireAdmin) {
         )
       ).rows[0];
       if (!template) problem("Chore not found.", 404);
-      if (req.body.points !== undefined) {
+      if (req.body.individualPoints !== "true" && req.body.points !== undefined) {
         template.points = points(req.body.points);
         await c.query("UPDATE chore_templates SET points=$1 WHERE id=$2", [
           template.points,
@@ -423,14 +435,17 @@ function installAdmin(app, db, requireAdmin) {
       );
       if (!result.rowCount)
         problem("Chore not found or already completed.", 409);
+      const savedPoints = new Map((await c.query(
+        "SELECT user_id,points FROM chore_participants WHERE chore_id=$1", [chore.id],
+      )).rows.map(person => [person.user_id, person.points]));
       await c.query("DELETE FROM chore_participants WHERE chore_id=$1", [
         chore.id,
       ]);
       if (chore.cooperative)
         for (const person of members)
           await c.query(
-            "INSERT INTO chore_participants(chore_id,user_id) VALUES($1,$2)",
-            [chore.id, person],
+            "INSERT INTO chore_participants(chore_id,user_id,points) VALUES($1,$2,$3)",
+            [chore.id, person, savedPoints.get(person) ?? null],
           );
     });
     redirect(req, res, "Assignment updated for this chore.");
@@ -455,14 +470,17 @@ function installAdmin(app, db, requireAdmin) {
         [userId, req.body.active === "true", id(req.params.id)],
       );
       if (!r.rowCount) problem("Schedule not found.", 404);
+      const savedPoints = new Map((await c.query(
+        "SELECT user_id,points FROM series_participants WHERE series_id=$1", [schedule.id],
+      )).rows.map(person => [person.user_id, person.points]));
       await c.query("DELETE FROM series_participants WHERE series_id=$1", [
         schedule.id,
       ]);
       if (schedule.cooperative)
         for (const person of members)
           await c.query(
-            "INSERT INTO series_participants(series_id,user_id) VALUES($1,$2)",
-            [schedule.id, person],
+            "INSERT INTO series_participants(series_id,user_id,points) VALUES($1,$2,$3)",
+            [schedule.id, person, savedPoints.get(person) ?? null],
           );
     });
     redirect(

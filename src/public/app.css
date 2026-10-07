@@ -1988,6 +1988,27 @@ textarea::placeholder {
   flex: 0 0 20px;
   accent-color: var(--color-314b36);
 }
+.individual-points-option,
+.assignment-member {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.individual-points-option input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+.assignment-member {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.member-picker .member-points input {
+  width: 90px;
+  height: auto;
+  flex: 0 0 90px;
+}
 .chore-copy .coop-label {
   color: var(--color-314b36);
   font-weight: 700;
