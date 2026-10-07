@@ -170,7 +170,7 @@ for (const role of ["admin", "member"]) {
       for (const query of f.queries.filter((q) =>
         q.sql.includes("JOIN users"),
       )) {
-        assert.match(query.sql, /WHERE r.user_id = \$1|m.chore_id=c.id AND m.user_id=\$1/);
+        assert.match(query.sql, /WHERE r.user_id = \$1|m.chore_id=c.id AND m.user_id=\$1|m.series_id=s.id AND m.user_id=\$1/);
         assert.deepEqual(query.values, [2]);
       }
     }

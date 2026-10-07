@@ -365,6 +365,7 @@ function installAdmin(app, db, requireAdmin) {
       req,
       res,
       "Chore added to the household plan. The definition stays in your library.",
+      "chores",
     );
   });
   app.post("/admin/library/:id", requireAdmin, async (req, res) => {
