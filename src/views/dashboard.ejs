@@ -177,6 +177,19 @@
 <small><%= t("Every effort adds up") %></small>
 </div>
 </div>
+<% if(upcomingSchedules.length) { %>
+<section class="panel padded" id="upcoming-chores">
+<h2><%= t("Upcoming recurring chores") %></h2>
+<p class="muted"><%= t("These assignments are saved. Their first tasks will appear on the start date.") %></p>
+<% upcomingSchedules.forEach(item=>{ %><article class="request-card" id="upcoming-series-<%= item.id %>">
+<h3><%= item.title %></h3>
+<% if(item.description) { %><p><%= item.description %></p><% } %>
+<p><%= t("Starts") %> <%= formatDate(item.starts_on) %> · <%= t('Every {count} {unit}', {count:item.interval_count, unit:t(language==='nb' || item.interval_count===1 ? item.interval_unit.slice(0,-1) : item.interval_unit)}) %></p>
+<p><%= item.points %> <%= t("points per member") %><% if(isAdmin || item.cooperative) { %> · <%= item.display_name || t("Unassigned") %><% } %></p>
+<% if(isAdmin) { %><a class="text-link" href="/dashboard?section=administration#schedule-<%= item.id %>"><%= t("Recurring schedules") %></a><% } %>
+</article><% }) %>
+</section>
+<% } %>
 <div class="content-grid">
 <section class="panel chore-panel" id="household-plan">
 <div class="panel-heading">
@@ -246,6 +259,7 @@
 <% }) %>
 </div>
 <h3 class="agenda-label"><%= t("This month’s agenda") %></h3>
+<% if(chores.some(c=>!c.calendar_date)) { %><p class="padded muted"><%= t("Chores without a deadline are also shown below.") %></p><% } %>
 <% } %>
 <% if(!chores.length) { %>
 <div class="empty">

@@ -261,6 +261,99 @@ test(
       ).status,
       400,
     );
+    // A recurring chore beginning next Monday is a saved plan, not a task yet.
+    const nextMonday = new Date(todayKey() + "T12:00:00Z");
+    nextMonday.setUTCDate(nextMonday.getUTCDate() + ((8 - nextMonday.getUTCDay()) % 7 || 7));
+    const startsOn = nextMonday.toISOString().slice(0, 10);
+    await post("/admin/chores", { title: "Next Monday recurring chore" }, admin);
+    const futureTemplate = (
+      await db.query("SELECT id FROM chore_templates WHERE title='Next Monday recurring chore'")
+    ).rows[0];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await post(`/admin/library/${futureTemplate.id}/assign`, {
+        memberIds: String(memberId), mode: "individual", schedule: "recurring",
+        startsOn, dueDate: "", intervalCount: "1", intervalUnit: "weeks", points: "7",
+      }, admin);
+      assert.equal(response.status, 302);
+      assert.equal(response.headers.get("location"), "/dashboard?section=chores");
+    }
+    const futureSchedules = (
+      await db.query("SELECT * FROM chore_series WHERE template_id=$1", [futureTemplate.id])
+    ).rows;
+    assert.equal(futureSchedules.length, 2);
+    assert.equal((await db.query("SELECT * FROM chores WHERE template_id=$1", [futureTemplate.id])).rowCount, 0);
+    for (const auth of [admin, member]) {
+      for (const view of ["list", "calendar"]) {
+        const html = await (await fetch(base + `/dashboard?section=chores&view=${view}`, {
+          headers: { Cookie: auth.cookie },
+        })).text();
+        assert.match(html, /Upcoming recurring chores/);
+        for (const schedule of futureSchedules)
+          assert.match(html, new RegExp(`id="upcoming-series-${schedule.id}"`));
+      }
+    }
+    for (const filter of ["member=2", "status=completed", "status=overdue"]) {
+      const html = await (await fetch(base + `/dashboard?section=chores&${filter}`, {
+        headers: { Cookie: admin.cookie },
+      })).text();
+      assert.doesNotMatch(html, /Next Monday recurring chore/);
+    }
+    await db.query("UPDATE chore_series SET active=false WHERE id=$1", [futureSchedules[0].id]);
+    const pausedHtml = await (await fetch(base + "/dashboard", {
+      headers: { Cookie: member.cookie },
+    })).text();
+    assert.doesNotMatch(pausedHtml, new RegExp(`id="upcoming-series-${futureSchedules[0].id}"`));
+    assert.match(pausedHtml, new RegExp(`id="upcoming-series-${futureSchedules[1].id}"`));
+    await db.query("SELECT generate_chore_occurrences($1::date)", [startsOn]);
+    await db.query("SELECT generate_chore_occurrences($1::date)", [startsOn]);
+    const firstOccurrence = (await db.query("SELECT * FROM chores WHERE template_id=$1", [futureTemplate.id])).rows;
+    assert.equal(firstOccurrence.length, 1);
+    assert.equal(firstOccurrence[0].user_id, memberId);
+    assert.equal(firstOccurrence[0].points, 7);
+    // Submit the actual one-off form: a single checkbox value and blank optional dates.
+    await post("/admin/chores", { title: "Single-member no deadline" }, admin);
+    const undatedTemplate = (
+      await db.query("SELECT id FROM chore_templates WHERE title=$1", [
+        "Single-member no deadline",
+      ])
+    ).rows[0];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await post(
+        `/admin/library/${undatedTemplate.id}/assign`,
+        {
+          memberIds: String(memberId), mode: "individual", schedule: "once",
+          points: "5", startsOn: "", dueDate: "",
+        },
+        admin,
+      );
+      assert.equal(response.status, 302);
+      assert.equal(response.headers.get("location"), "/dashboard?section=chores");
+    }
+    const undatedTasks = (
+      await db.query("SELECT * FROM chores WHERE template_id=$1", [undatedTemplate.id])
+    ).rows;
+    assert.equal(undatedTasks.length, 2);
+    assert.ok(undatedTasks.every((task) => task.user_id === memberId && task.due_date === null));
+    for (const auth of [admin, member]) {
+      for (const view of ["list", "calendar"]) {
+        const html = await (
+          await fetch(base + `/dashboard?section=chores&view=${view}&month=2026-10`, {
+            headers: { Cookie: auth.cookie },
+          })
+        ).text();
+        for (const task of undatedTasks)
+          assert.match(html, new RegExp(`id="chore-${task.id}"`));
+      }
+    }
+    for (const filter of ["member=2", "status=completed", "status=overdue"]) {
+      const html = await (
+        await fetch(base + `/dashboard?section=chores&view=calendar&${filter}`, {
+          headers: { Cookie: admin.cookie },
+        })
+      ).text();
+      for (const task of undatedTasks)
+        assert.doesNotMatch(html, new RegExp(`id="chore-${task.id}"`));
+    }
     // Definitions survive repeated assignments, and never create a task by themselves.
     assert.equal(
       (
@@ -485,6 +578,7 @@ test(
       await fetch(base + "/dashboard", { headers: { Cookie: sam.cookie } })
     ).text();
     assert.doesNotMatch(outsiderHtml, /Make dinner/);
+    assert.doesNotMatch(outsiderHtml, /Next Monday recurring chore/);
     assert.equal(
       (await post(`/chores/${shared.id}/toggle`, { completed: "true" }, sam))
         .status,

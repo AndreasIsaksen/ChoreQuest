@@ -30,7 +30,7 @@
 </article><% }) %></div></section>
 <section class="panel form-panel"><div class="panel-heading"><h2><%= t("Recurring schedules") %></h2></div>
 <% if(!series.length) { %><p class="padded muted"><%= t("Administer a saved chore above to create a recurring schedule.") %></p><% } %>
-<% series.forEach(item=>{ %><details class="decision padded"><summary><%= item.title %> · <%= t(item.cooperative?'Co-op · ':'') %><%= t('Every {count} {unit}', {count:item.interval_count, unit:t(language==='nb' || item.interval_count===1 ? item.interval_unit.slice(0,-1) : item.interval_unit)}) %> · <%= t(item.active?'Active':'Paused') %></summary>
+<% series.forEach(item=>{ %><details class="decision padded" id="schedule-<%= item.id %>"><summary><%= item.title %> · <%= t(item.cooperative?'Co-op · ':'') %><%= t('Every {count} {unit}', {count:item.interval_count, unit:t(language==='nb' || item.interval_count===1 ? item.interval_unit.slice(0,-1) : item.interval_unit)}) %> · <%= t(item.active?'Active':'Paused') %></summary>
 <p class="small muted"><%= t("Starts") %> <%= formatDate(item.starts_on) %><%= t(". Each period is generated when it begins. Previous completions stay in the agenda.") %></p>
 <form class="form-grid" method="post" action="/admin/series/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <%- include('assignees',{people:activeUsers,selected:item.member_ids,multiple:item.cooperative}) %>

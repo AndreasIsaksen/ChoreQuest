@@ -44,6 +44,7 @@ test("populated member/admin views translate copy without changing user data or 
           view: "calendar", member: "", status: "all", days: calendarDays("2026-09"),
           stats: { total: 2, completed: 1, overdue: 1, pending: 1 }, flash: "Your change has been saved.",
           library: [{ id: 1, title: userContent, description: "", points: 10 }],
+          upcomingSchedules: [{ id: 3, title: userContent, description: userContent, cooperative: true, display_name: "English", points: 10, starts_on: "2026-10-05", interval_count: 1, interval_unit: "weeks" }],
           series: [true, false].map((active, i) => ({ id: i + 1, title: userContent, cooperative: active, member_ids: [1, 2], starts_on: "2026-09-01", interval_count: i + 1, interval_unit: "weeks", active })),
           requestLabels: { different_chore: "Change a chore", due_date_change: "Change a due date", other: "Something else" },
           requests: ["pending", "approved", "rejected"].map((status, i) => ({ id: i + 1, status, request_type: "other", display_name: "English", chore_title: userContent, details: userContent, proposed_due_date: "2026-09-30", admin_note: "My response" })),

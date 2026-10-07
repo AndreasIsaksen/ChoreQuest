@@ -112,6 +112,8 @@ Under **Household**, reset the passwords of `alex` and `sam` if you want to use 
 
 Open **Administration**, add a chore to the **Chore library**, then use **Administer chore** to select participants, assignment type, and schedule. Creating a library entry alone does not assign work. Members see their assignments under **Chores** and can complete them once their start date arrives.
 
+Recurring assignments with a future start date appear under **Upcoming recurring chores** for the assigned members and administrators. The first task is generated when that date arrives. After administering a chore, you are taken to the household plan to review the assignment. Chores without a deadline also remain visible below the month calendar.
+
 ## Configuration and remote access
 
 | Setting | Purpose |

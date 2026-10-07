@@ -258,13 +258,14 @@ function createApp({ db = pool, env = process.env } = {}) {
           )
         ).rows
       : [];
-    const series = isAdmin
-      ? (
-          await db.query(
-            "SELECT s.*, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on, ARRAY(SELECT m.user_id FROM series_members m WHERE m.series_id=s.id) AS member_ids FROM chore_series s WHERE s.removed_at IS NULL ORDER BY s.id DESC",
-          )
-        ).rows
-      : [];
+    const series = (
+      await db.query(
+        `SELECT s.*, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on, ARRAY(SELECT m.user_id FROM series_members m WHERE m.series_id=s.id) AS member_ids,
+             COALESCE((SELECT string_agg(u.display_name, ', ' ORDER BY u.display_name) FROM series_members m JOIN users u ON u.id=m.user_id WHERE m.series_id=s.id),'') AS display_name
+             FROM chore_series s WHERE s.removed_at IS NULL ${isAdmin ? "" : "AND s.active AND EXISTS (SELECT 1 FROM series_members m WHERE m.series_id=s.id AND m.user_id=$1)"} ORDER BY s.id DESC`,
+        isAdmin ? [] : [user.id],
+      )
+    ).rows;
     const library = isAdmin
       ? (
           await db.query(
@@ -338,6 +339,7 @@ function createApp({ db = pool, env = process.env } = {}) {
     const chores = scoped.filter(
       (c) =>
         (view !== "calendar" ||
+          !c.calendar_date ||
           (c.calendar_date &&
             (c.window_start
               ? c.window_start <= monthEnd &&
@@ -378,6 +380,10 @@ function createApp({ db = pool, env = process.env } = {}) {
       historyCount,
       adjustmentRequestId: crypto.randomUUID(),
       series,
+      upcomingSchedules: series.filter((s) =>
+        s.active && s.starts_on > today && ["all", "open"].includes(status) &&
+        (!member || (member === "unassigned" ? !s.member_ids.length : s.member_ids.includes(Number(member))))
+      ).sort((a, b) => a.starts_on.localeCompare(b.starts_on) || a.id - b.id),
       library,
       allChores,
       chores,
