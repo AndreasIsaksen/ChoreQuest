@@ -1,0 +1,40 @@
+<div class="stats">
+<div class="stat">
+<span class="stat-icon sage">
+<%- include('icon',{name:'list'}) %>
+</span>
+<div>
+<span class="stat-label"><%= t("Chores to do") %></span>
+<strong>
+<%= stats.total-stats.completed %>
+</strong>
+</div>
+<small><%= t("Across all dates") %></small>
+</div>
+<div class="stat">
+<span class="stat-icon peach">
+<%- include('icon',{name:'clock'}) %>
+</span>
+<div>
+<span class="stat-label"><%= t("Overdue") %></span>
+<strong>
+<%= stats.overdue %>
+</strong>
+</div>
+<small><%= t("A little attention needed") %></small>
+</div>
+<div class="stat">
+<span class="stat-icon lilac">
+<%- include('icon',{name:'check'}) %>
+</span>
+<div>
+<span class="stat-label"><%= t("Completed") %></span>
+<strong>
+<%= stats.completed %>
+<em> / <%= stats.total %>
+</em>
+</strong>
+</div>
+<small><%= t("Every effort adds up") %></small>
+</div>
+</div>
