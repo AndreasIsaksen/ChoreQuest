@@ -114,6 +114,10 @@ Open **Administration**, add a chore to the **Chore library**, then use **Admini
 
 Recurring assignments with a future start date appear under **Upcoming recurring chores** for the assigned members and administrators. The first task is generated when that date arrives. After administering a chore, you are taken to the household plan to review the assignment. Chores without a deadline also remain visible below the month calendar.
 
+Choose **Selected weekdays** when administering a library chore to repeat on specific days, such as Monday, Wednesday and Friday. Each selected day gets its own task, starting on or after the chosen start date. Individual and co-op assignments both support this schedule, including pause/resume and generation of missed days after downtime.
+
+The optional **Due time** applies to one-off chores, interval schedules and weekday schedules. For example, `14:00` means 14:00 in Europe/Oslo on the due date, including daylight-saving changes. Interval chores use that time on the last day of each completion window; weekday chores are due on their selected day. Leave the time blank for the existing end-of-day deadline. Overdue status, points deductions, late completion labels and one-hour reminders all use the chosen time.
+
 ## Configuration and remote access
 
 | Setting | Purpose |

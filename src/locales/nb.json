@@ -372,5 +372,13 @@
   "Your chore request has been approved.": "Oppgaveforespørselen din er godkjent.",
   "A chore is due in one hour.": "En oppgave har frist om én time.",
   "Switch to dark mode": "Bytt til mørk modus",
-  "Switch to light mode": "Bytt til lys modus"
+  "Switch to light mode": "Bytt til lys modus",
+  "Selected weekdays": "Valgte ukedager",
+  "Days of the week": "Ukedager",
+  "Due time (optional)": "Klokkeslett for frist (valgfritt)",
+  "Times use Europe/Oslo. Leave blank for an end-of-day deadline.": "Tidspunkter bruker Europe/Oslo. La feltet stå tomt for frist ved dagens slutt.",
+  "Enter a valid due time (HH:MM).": "Skriv inn et gyldig klokkeslett (TT:MM).",
+  "Choose a due date when setting a due time.": "Velg en fristdato når du angir klokkeslett.",
+  "Choose at least one valid weekday.": "Velg minst én gyldig ukedag.",
+  "Next occurrence": "Neste oppgave"
 }

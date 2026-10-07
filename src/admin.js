@@ -74,18 +74,30 @@ async function assignChore(c, template, b) {
   const cooperative = mode === "cooperative";
   if (cooperative && members.length < 2)
     problem("Select at least two members for a co-op chore.");
-  const starts = date(b.startsOn, b.schedule === "recurring");
+  const recurring = ["recurring", "weekdays"].includes(b.schedule);
+  const starts = date(b.startsOn, recurring);
   const due = date(b.dueDate);
-  const recurring = b.schedule === "recurring";
-  if (b.schedule && !["once", "recurring"].includes(b.schedule))
+  const dueTime = b.dueTime || null;
+  if (dueTime && (typeof dueTime !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(dueTime)))
+    problem("Enter a valid due time (HH:MM).");
+  if (dueTime && !recurring && !due) problem("Choose a due date when setting a due time.");
+  let weekdays = null;
+  if (b.schedule === "weekdays") {
+    const raw = Array.isArray(b.weekdays) ? b.weekdays : [b.weekdays];
+    if (!raw.length || raw.some(value => !/^[1-7]$/.test(String(value))))
+      problem("Choose at least one valid weekday.");
+    weekdays = [...new Set(raw.map(Number))].sort();
+  }
+  if (b.schedule && !["once", "recurring", "weekdays"].includes(b.schedule))
     problem("Invalid schedule.");
-  const count = Number(b.intervalCount);
+  const count = weekdays ? 1 : Number(b.intervalCount);
+  const unit = weekdays ? "weeks" : b.intervalUnit;
   if (recurring) {
     if (
       !Number.isInteger(count) ||
       count < 1 ||
       count > 365 ||
-      !["days", "weeks", "months"].includes(b.intervalUnit)
+      !["days", "weeks", "months"].includes(unit)
     )
       problem("Choose a recurrence of 1–365 days, weeks, or months.");
     if (starts < todayKey())
@@ -99,21 +111,23 @@ async function assignChore(c, template, b) {
       : [null]) {
     const row = recurring
       ? await c.query(
-          "INSERT INTO chore_series(title,description,user_id,starts_on,interval_count,interval_unit,template_id,cooperative,points) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id",
+          "INSERT INTO chore_series(title,description,user_id,starts_on,interval_count,interval_unit,template_id,cooperative,points,weekdays,due_time) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id",
           [
             template.title,
             template.description,
             member,
             starts,
             count,
-            b.intervalUnit,
+            unit,
             template.id,
             cooperative,
             template.points,
+            weekdays,
+            dueTime,
           ],
         )
       : await c.query(
-          "INSERT INTO chores(title,description,user_id,window_start,due_date,template_id,cooperative,points) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+          "INSERT INTO chores(title,description,user_id,window_start,due_date,template_id,cooperative,points,due_time) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id",
           [
             template.title,
             template.description,
@@ -123,6 +137,7 @@ async function assignChore(c, template, b) {
             template.id,
             cooperative,
             template.points,
+            dueTime,
           ],
         );
     if (cooperative) {
@@ -304,7 +319,7 @@ function installAdmin(app, db, requireAdmin) {
           );
         }
         await c.query(
-          `UPDATE chores SET removed_at=now(),removed_history=(completed OR COALESCE(due_date<$2::date,false)) WHERE ${scope}=$1 AND removed_at IS NULL`,
+          `UPDATE chores SET removed_at=now(),removed_history=(completed OR COALESCE(chore_deadline(due_date,due_time)<=chore_as_of($2::date),false)) WHERE ${scope}=$1 AND removed_at IS NULL`,
           [target, todayKey()],
         );
         await c.query(

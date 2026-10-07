@@ -146,6 +146,24 @@ test(
     assert.equal(sent.length, 1);
     await notifications.maintain(new Date("2026-12-06T22:00:00Z"));
     assert.equal(sent.length, 2);
+    // Timed reminders follow Oslo's daylight-saving offsets and expire at the due time.
+    const timedSent = [];
+    const timedNotifications = createNotifications(db, env, async (...args) => timedSent.push(args));
+    for (const [dueDay, before, reminder, deadline] of [
+      ["2026-03-29", "2026-03-29T10:59:00Z", "2026-03-29T11:00:00Z", "2026-03-29T12:00:00Z"],
+      ["2026-10-25", "2026-10-25T11:59:00Z", "2026-10-25T12:00:00Z", "2026-10-25T13:00:00Z"],
+    ]) {
+      await db.query("INSERT INTO chores(user_id,title,due_date,due_time) VALUES(2,'Timed reminder',$1,'14:00')", [dueDay]);
+      await db.query("DELETE FROM push_deliveries");
+      const previous = timedSent.length;
+      await timedNotifications.maintain(new Date(before));
+      assert.equal(timedSent.length, previous);
+      await timedNotifications.maintain(new Date(reminder));
+      assert.equal(timedSent.length, previous+1);
+      assert.equal(timedSent.at(-1)[2].TTL, 3600);
+      await timedNotifications.maintain(new Date(deadline));
+      assert.equal(timedSent.length, previous+1);
+    }
     await db.query(
       "SELECT queue_push(2,'assignment','A chore has been assigned to you.','','/dashboard')",
     );

@@ -112,19 +112,22 @@ function createNotifications(
         SELECT ch.id,m.user_id,ch.due_date FROM chores ch JOIN chore_members m ON m.chore_id=ch.id
         JOIN users u ON u.id=m.user_id WHERE NOT ch.completed AND ch.removed_at IS NULL AND u.deleted_at IS NULL AND u.notify_due
         AND (ch.window_start IS NULL OR ch.window_start <= ($1::timestamptz AT TIME ZONE 'Europe/Oslo')::date)
-        AND $1::timestamptz >= ((ch.due_date+1)::timestamp AT TIME ZONE 'Europe/Oslo')-interval '1 hour'
-        AND $1::timestamptz < ((ch.due_date+1)::timestamp AT TIME ZONE 'Europe/Oslo')
+        AND $1::timestamptz >= chore_deadline(ch.due_date,ch.due_time)-interval '1 hour'
+        AND $1::timestamptz < chore_deadline(ch.due_date,ch.due_time)
         AND EXISTS(SELECT 1 FROM push_subscriptions s WHERE s.user_id=m.user_id)
         ON CONFLICT DO NOTHING RETURNING *`,
           [now],
         )
       ).rows;
-      for (const r of reminders)
+      for (const r of reminders) {
         await c.query(
           `SELECT queue_push($1,'due','A chore is due in one hour.',
-        (SELECT title FROM chores WHERE id=$2),'/dashboard?section=chores',(($3::date+1)::timestamp AT TIME ZONE 'Europe/Oslo'),$2,$3::date)`,
+        (SELECT title FROM chores WHERE id=$2),'/dashboard?section=chores',(SELECT chore_deadline(due_date,due_time) FROM chores WHERE id=$2),$2,$3::date)`,
           [r.user_id, r.chore_id, r.due_date],
         );
+        // Reminders created in this pass are eligible using the worker's clock.
+        await c.query("UPDATE push_deliveries SET next_attempt=$1 WHERE reminder_chore_id=$2 AND reminder_due_date=$3 AND attempts=0", [now, r.chore_id, r.due_date]);
+      }
       await c.query("DELETE FROM push_deliveries WHERE expires_at <= $1", [
         now,
       ]);

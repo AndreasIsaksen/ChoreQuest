@@ -1,0 +1,1 @@
+<% if(item.weekdays) { %><%= item.weekdays.map(day=>t(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][day-1])).join(', ') %><% } else { %><%= t('Every {count} {unit}', {count:item.interval_count, unit:t(language==='nb' || item.interval_count===1 ? item.interval_unit.slice(0,-1) : item.interval_unit)}) %><% } %><%= item.due_time ? ' · ' + item.due_time.slice(0,5) : '' %>
