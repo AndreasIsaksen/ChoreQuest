@@ -14,11 +14,22 @@ test("dates and interpolated messages use the selected language", () => {
   assert.equal(translator("en")("Missing key"), "Missing key");
 });
 
+test("weekday summaries show translated days and the saved deadline time", () => {
+  const file = path.join(__dirname, "../src/views/partials/schedule-summary.ejs");
+  for (const [language, expected] of [["en", "Mon, Wed, Fri"], ["nb", "Man, Ons, Fre"]]) {
+    const html = ejs.render(fs.readFileSync(file,"utf8"), {
+      item: { weekdays: [1,3,5], due_time: "14:00:00" }, language, t: translator(language),
+    });
+    assert.ok(html.includes(expected));
+    assert.match(html,/14:00/);
+  }
+});
+
 test("populated member/admin views translate copy without changing user data or form values", () => {
   const userContent = "Chores <script>alert(1)</script>";
   const chores = [false, true].map((completed, i) => ({
     id: i + 1, title: userContent, description: "Keep my description",
-    completed, completed_late: completed, points: 10, member_ids: [1, 2],
+    completed, completed_late: completed, overdue: !completed, due_time: "14:00:00", points: 10, member_ids: [1, 2],
     display_name: "English", cooperative: true, series_id: 1,
     window_start: "2026-09-01", due_date: "2026-09-20",
   }));

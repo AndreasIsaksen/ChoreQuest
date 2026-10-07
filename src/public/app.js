@@ -9,14 +9,18 @@ window.addEventListener("hashchange", revealTarget);
 for (const selector of document.querySelectorAll("[data-schedule]")) {
   const form = selector.closest("form");
   function syncSchedule() {
-    const recurring = selector.value === "recurring";
-    form.querySelector("[data-recurring]").hidden = !recurring;
+    const weekdays = selector.value === "weekdays";
+    const recurring = selector.value !== "once";
+    form.querySelector("[data-recurring]").hidden = !recurring || weekdays;
+    form.querySelector("[data-weekdays]").hidden = !weekdays;
+    for (const input of form.querySelectorAll("[data-weekdays] input"))
+      input.disabled = !weekdays;
     form.querySelector("[data-once]").hidden = recurring;
     form.querySelector('[name="dueDate"]').disabled = recurring;
     for (const input of form.querySelectorAll(
       "[data-recurring] input, [data-recurring] select",
     ))
-      input.disabled = !recurring;
+      input.disabled = !recurring || weekdays;
     form.querySelector('[name="startsOn"]').required = recurring;
     form.querySelector('[name="startsOn"]').min = recurring
       ? new Intl.DateTimeFormat("en-CA", {
@@ -26,7 +30,7 @@ for (const selector of document.querySelectorAll("[data-schedule]")) {
           day: "2-digit",
         }).format(new Date())
       : "";
-    form.querySelector('[name="intervalCount"]').required = recurring;
+    form.querySelector('[name="intervalCount"]').required = recurring && !weekdays;
   }
   selector.addEventListener("change", syncSchedule);
   syncSchedule();

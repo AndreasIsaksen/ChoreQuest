@@ -19,8 +19,10 @@
 <%- include('assignees',{people:activeUsers,selected:[],multiple:true}) %>
 <label><%= t("Assignment type") %><select name="mode"><option value="individual"><%= t("Individual — separate tasks") %></option><option value="cooperative"><%= t("Co-op — shared task") %></option></select></label>
 <p class="form-hint"><%= t("Individual: each person completes their own task. Co-op: select at least two members; anyone in the group can mark it done for everyone. Leave members empty for an unassigned individual task.") %></p>
-<label><%= t("Schedule") %><select name="schedule" data-schedule><option value="once"><%= t("One-off task") %></option><option value="recurring"><%= t("Recurring completion window") %></option></select></label>
+<label><%= t("Schedule") %><select name="schedule" data-schedule><option value="once"><%= t("One-off task") %></option><option value="recurring"><%= t("Recurring completion window") %></option><option value="weekdays"><%= t("Selected weekdays") %></option></select></label>
+<fieldset class="member-picker" data-weekdays hidden><legend><%= t("Days of the week") %></legend><% ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach((day,index)=>{ %><label><input type="checkbox" name="weekdays" value="<%= index+1 %>"><span><%= t(day) %></span></label><% }) %></fieldset>
 <label><%= t("Start date") %> <span class="optional"><%= t("(required for recurring chores)") %></span><input type="date" name="startsOn"></label>
+<label><%= t("Due time (optional)") %><input type="time" name="dueTime" step="60"></label><p class="form-hint"><%= t("Times use Europe/Oslo. Leave blank for an end-of-day deadline.") %></p>
 <label data-once><%= t("Due date (optional)") %><input type="date" name="dueDate"></label>
 <div class="stack" data-recurring hidden><label><%= t("Repeat every") %><input type="number" name="intervalCount" min="1" max="365" value="1"></label><label><%= t("Period") %><select name="intervalUnit"><option value="days"><%= t("Days") %></option><option value="weeks" selected><%= t("Weeks") %></option><option value="months"><%= t("Months") %></option></select></label><p class="form-hint"><%= t("Complete once within each period. New periods appear when they start, with a separate completion record.") %></p></div>
 <button class="button primary"><%= t("Add to household plan") %></button>
@@ -30,7 +32,7 @@
 </article><% }) %></div></section>
 <section class="panel form-panel"><div class="panel-heading"><h2><%= t("Recurring schedules") %></h2></div>
 <% if(!series.length) { %><p class="padded muted"><%= t("Administer a saved chore above to create a recurring schedule.") %></p><% } %>
-<% series.forEach(item=>{ %><details class="decision padded" id="schedule-<%= item.id %>"><summary><%= item.title %> · <%= t(item.cooperative?'Co-op · ':'') %><%= t('Every {count} {unit}', {count:item.interval_count, unit:t(language==='nb' || item.interval_count===1 ? item.interval_unit.slice(0,-1) : item.interval_unit)}) %> · <%= t(item.active?'Active':'Paused') %></summary>
+<% series.forEach(item=>{ %><details class="decision padded" id="schedule-<%= item.id %>"><summary><%= item.title %> · <%= t(item.cooperative?'Co-op · ':'') %><%- include('schedule-summary',{item}) %> · <%= t(item.active?'Active':'Paused') %></summary>
 <p class="small muted"><%= t("Starts") %> <%= formatDate(item.starts_on) %><%= t(". Each period is generated when it begins. Previous completions stay in the agenda.") %></p>
 <form class="form-grid" method="post" action="/admin/series/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <%- include('assignees',{people:activeUsers,selected:item.member_ids,multiple:item.cooperative}) %>

@@ -184,7 +184,7 @@
 <% upcomingSchedules.forEach(item=>{ %><article class="request-card" id="upcoming-series-<%= item.id %>">
 <h3><%= item.title %></h3>
 <% if(item.description) { %><p><%= item.description %></p><% } %>
-<p><%= t("Starts") %> <%= formatDate(item.starts_on) %> · <%= t('Every {count} {unit}', {count:item.interval_count, unit:t(language==='nb' || item.interval_count===1 ? item.interval_unit.slice(0,-1) : item.interval_unit)}) %></p>
+<p><%= t(item.weekdays ? "Next occurrence" : "Starts") %> <%= formatDate(item.next_on || item.starts_on) %> · <%- include('partials/schedule-summary',{item}) %></p>
 <p><%= item.points %> <%= t("points per member") %><% if(isAdmin || item.cooperative) { %> · <%= item.display_name || t("Unassigned") %><% } %></p>
 <% if(isAdmin) { %><a class="text-link" href="/dashboard?section=administration#schedule-<%= item.id %>"><%= t("Recurring schedules") %></a><% } %>
 </article><% }) %>
@@ -279,7 +279,7 @@
 </div>
 <% } %>
 <div class="chore-list">
-<% chores.forEach(c=>{ const late=!c.completed && c.due_date && c.due_date<today; %>
+<% chores.forEach(c=>{ const late=!c.completed && c.overdue; %>
 <article class="chore-row" id="chore-<%= c.id %>">
 <% if(!c.removed_at && c.member_ids.includes(user.id)) { %>
 <form method="post" action="/chores/<%= c.id %>/toggle">
@@ -311,7 +311,7 @@
 <div class="chore-meta">
 <span>
 <%- include('partials/icon',{name:'calendar'}) %>
-<%= c.window_start ? formatDate(c.window_start) + ' – ' : '' %><%= c.due_date ? formatDate(c.due_date) : t('No deadline') %><%= t(c.series_id ? ' · Once per period' : '') %>
+<%= c.window_start ? formatDate(c.window_start) + ' – ' : '' %><%= c.due_date ? formatDate(c.due_date) : t('No deadline') %><%= c.due_time ? ' · ' + c.due_time.slice(0,5) : '' %><%= t(c.series_id ? ' · Once per period' : '') %>
 </span>
 <% if(isAdmin || c.cooperative) { %>
 <span class="person-chip">
