@@ -64,3 +64,41 @@ for (const form of document.querySelectorAll("[data-language-form]")) {
     form.requestSubmit();
   });
 }
+
+for (const opener of document.querySelectorAll("[data-quick-open]")) {
+  const dialog = document.querySelector("[data-quick-dialog]");
+  const form = dialog.querySelector("form");
+  const deadline = form.querySelector("[data-quick-deadline]");
+  function syncDeadline() {
+    form.querySelector("[data-quick-dates]").hidden = !deadline.checked;
+    for (const input of form.querySelectorAll("[data-quick-dates] input"))
+      input.disabled = !deadline.checked;
+    form.elements.dueDate.required = deadline.checked;
+  }
+  deadline.addEventListener("change", syncDeadline);
+  opener.addEventListener("click", () => dialog.showModal());
+  for (const close of dialog.querySelectorAll("[data-quick-close]"))
+    close.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => {
+    form.reset();
+    form.dispatchEvent(new Event("change", { bubbles: true }));
+    syncDeadline();
+    opener.focus();
+  });
+  form.addEventListener("submit", (event) => {
+    const members = form.querySelectorAll("[data-member-select]:checked");
+    const minimum = form.elements.mode.value === "cooperative" ? 2 : 1;
+    if (members.length < minimum) {
+      event.preventDefault();
+      const choice = form.querySelector("[data-member-select]");
+      if (choice) {
+        choice.setCustomValidity(form.querySelector(".form-hint").textContent.trim());
+        choice.reportValidity();
+      }
+    }
+  });
+  form.addEventListener("change", () => {
+    for (const choice of form.querySelectorAll("[data-member-select]")) choice.setCustomValidity("");
+  });
+  syncDeadline();
+}

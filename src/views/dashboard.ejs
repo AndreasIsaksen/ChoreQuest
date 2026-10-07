@@ -102,6 +102,7 @@
 <%- include('partials/icon',{name:isAdmin ? 'plus' : 'arrow'}) %>
 <%= t(isAdmin ? 'Create a chore' : 'View my chores') %>
 </a>
+<% if(isAdmin) { %><button type="button" class="button subtle" data-quick-open><%= t("Quick Chore") %></button><%- include('partials/quick-chore') %><% } %>
 </div>
 <div class="welcome-art" aria-hidden="true">
 <span class="art-star">✳</span>
@@ -202,10 +203,10 @@
 </h2>
 </div>
 <div class="view-switch" aria-label="<%= t("Chore view") %>">
-<a aria-label="<%= t("List view") %>" class="<%= view==='list'?'selected':'' %>" href="/dashboard?section=chores&view=list&member=<%= member %>&status=<%= status %>">
+<a aria-label="<%= t("List view") %>" class="<%= view==='list'?'selected':'' %>" href="/dashboard?section=chores&view=list&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>">
 <%- include('partials/icon',{name:'list'}) %>
 </a>
-<a aria-label="<%= t("Calendar view") %>" class="<%= view==='calendar'?'selected':'' %>" href="/dashboard?section=chores&view=calendar&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>">
+<a aria-label="<%= t("Calendar view") %>" class="<%= view==='calendar'?'selected':'' %>" href="/dashboard?section=chores&view=calendar&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>">
 <%- include('partials/icon',{name:'calendar'}) %>
 </a>
 </div>
@@ -213,6 +214,9 @@
 <form class="filters" method="get" action="/dashboard">
 <input type="hidden" name="section" value="chores">
 <input type="hidden" name="view" value="<%= view %>">
+<label><%= t("Chore type") %><select name="choreType">
+<% for(const [value,label] of [['all','All chore types'],['quick','Quick chores only'],['standard','Exclude quick chores']]) { %><option value="<%= value %>" <%= (typeof choreType === 'undefined' ? 'all' : choreType)===value?'selected':'' %>><%= t(label) %></option><% } %>
+</select></label>
 <label><%= t("Status") %><select name="status">
 <% for (const [value,label] of [['all','All chores'],['open','To do'],['completed','Completed'],['overdue','Overdue'],['removed','Removed']]) { %>
 <option value="<%= value %>" <%= status===value?'selected':'' %>>
@@ -252,7 +256,7 @@
 </time>
 <% dayChores.forEach(c=>{ %>
 <a class="calendar-chore <%= c.completed?'done':'' %>" href="#chore-<%= c.id %>" title="<%= c.title %> · <%= c.display_name %>">
-<%= c.title %><%= c.removed_at ? ' · ' + t('Removed') : '' %>
+<%= c.title %><%= c.is_quick ? " · " + t("Quick Chore") : "" %><%= c.removed_at ? ' · ' + t('Removed') : '' %>
 </a>
 <% }) %>
 </div>
@@ -301,7 +305,7 @@
 <div class="chore-copy">
 <h3 class="<%= c.completed?'completed-title':'' %>">
 <%= c.title %>
-</h3><% if(isAdmin && c.custom_points) { %><%- include('partials/member-rewards',{item:c}) %><% } else { %><span class="badge pending"><%= c.points %> <%= t("points") %></span><% } %>
+</h3><% if(c.is_quick) { %><span class="badge pending"><%= t("Quick Chore") %></span><% } %><% if(isAdmin && c.custom_points) { %><%- include('partials/member-rewards',{item:c}) %><% } else { %><span class="badge pending"><%= c.points %> <%= t("points") %></span><% } %>
 <% if(c.description) { %>
 <p>
 <%= c.description %>

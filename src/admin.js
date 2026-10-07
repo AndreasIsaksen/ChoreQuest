@@ -139,7 +139,7 @@ async function assignChore(c, template, b) {
           ],
         )
       : await c.query(
-          "INSERT INTO chores(title,description,user_id,window_start,due_date,template_id,cooperative,points,due_time) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id",
+          "INSERT INTO chores(title,description,user_id,window_start,due_date,template_id,cooperative,points,due_time,is_quick) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id",
           [
             template.title,
             template.description,
@@ -150,6 +150,7 @@ async function assignChore(c, template, b) {
             cooperative,
             individualPoints && !cooperative ? memberPoints.get(member) : template.points,
             dueTime,
+            template.is_quick || false,
           ],
         );
     if (cooperative) {
@@ -346,6 +347,22 @@ function installAdmin(app, db, requireAdmin) {
       );
     });
   }
+  app.post("/admin/quick-chores", requireAdmin, async (req, res) => {
+    const b = req.body;
+    const title = text(b.title, "Title");
+    if (b.hasDeadline !== undefined && b.hasDeadline !== "true")
+      problem("Invalid deadline option.");
+    await transaction(db, async (c) => {
+      await c.query("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE");
+      if (!(await participants(c, b)).length) problem("Choose at least one member.");
+      await assignChore(c, { title, description: "", points: points(b.points), id: null, is_quick: true }, {
+        ...b, schedule: "once", startsOn: undefined,
+        dueDate: b.hasDeadline === "true" ? date(b.dueDate, true) : undefined,
+        dueTime: b.hasDeadline === "true" ? b.dueTime : undefined,
+      });
+    });
+    redirect(req, res, "Quick chore assigned.", "overview");
+  });
   app.post("/admin/chores", requireAdmin, async (req, res) => {
     const b = req.body;
     const title = text(b.title, "Title");

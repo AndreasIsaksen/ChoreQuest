@@ -386,5 +386,20 @@
   "Points by member": "Poeng per medlem",
   "Choose members when setting individual points.": "Velg medlemmer når du angir individuelle poeng.",
   "Enter points for each selected member.": "Angi poeng for hvert valgt medlem.",
-  "Invalid individual points option.": "Ugyldig valg for individuelle poeng."
+  "Invalid individual points option.": "Ugyldig valg for individuelle poeng.",
+  "Quick Chore": "Hurtigoppgave",
+  "Task title": "Oppgavetittel",
+  "Choose at least one member. Co-op chores need at least two members and share completion.": "Velg minst ett medlem. Samarbeidsoppgaver krever minst to medlemmer og fullføres sammen.",
+  "Set a due date and time": "Angi frist med dato og tid",
+  "Quick chores are assigned directly and are not saved in the chore library.": "Hurtigoppgaver tildeles direkte og lagres ikke i oppgavebiblioteket.",
+  "Assign": "Tildel",
+  "Chore type": "Oppgavetype",
+  "All chore types": "Alle oppgavetyper",
+  "Quick chores only": "Kun hurtigoppgaver",
+  "Exclude quick chores": "Utelat hurtigoppgaver",
+  "Quick chore assigned.": "Hurtigoppgave tildelt.",
+  "Choose at least one member.": "Velg minst ett medlem.",
+  "Invalid deadline option.": "Ugyldig fristvalg.",
+  "Cancel": "Avbryt",
+  "Due date": "Frist"
 }

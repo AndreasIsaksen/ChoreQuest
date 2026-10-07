@@ -2136,3 +2136,22 @@ textarea::placeholder {
 [data-theme="dark"] .button.subtle { background: #293b30; border-color: #405747; color: #d5e5cd; }
 [data-theme="dark"] .badge.pending { background: #3c3522; color: #e2cb91; }
 [data-theme="dark"] .nav-count { background: #405747; color: #e0edda; }
+
+.quick-chore-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  color: var(--ink);
+  background: var(--white);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .25);
+}
+.quick-chore-dialog::backdrop { background: rgba(0, 0, 0, .5); }
+.quick-chore-heading, .quick-chore-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.quick-chore-heading { margin-bottom: 20px; }
+.quick-chore-heading h2 { margin: 0; }
+.quick-chore-actions { justify-content: flex-end; }
+.welcome [data-quick-open] { margin-left: 8px; }

@@ -228,6 +228,7 @@ function createApp({ db = pool, env = process.env } = {}) {
     )
       ? req.query.status
       : "all";
+    const choreType = ["quick", "standard"].includes(req.query.choreType) ? req.query.choreType : "all";
     const view = req.query.view === "calendar" ? "calendar" : "list";
     await transaction(db, async (c) => {
       await c.query("SELECT generate_chore_occurrences($1::date)", [
@@ -240,7 +241,7 @@ function createApp({ db = pool, env = process.env } = {}) {
        ${isAdmin ? "c.points" : "(SELECT m.points FROM chore_member_points m WHERE m.chore_id=c.id AND m.user_id=$1)"} AS points,
        EXISTS(SELECT 1 FROM chore_participants p WHERE p.chore_id=c.id AND p.points IS NOT NULL) AS custom_points,
        (SELECT jsonb_agg(jsonb_build_object('name',u.display_name,'points',m.points) ORDER BY u.display_name) FROM chore_member_points m JOIN users u ON u.id=m.user_id WHERE m.chore_id=c.id) AS point_rewards,
-       c.removed_at, c.completed, c.due_time, chore_deadline(c.due_date,c.due_time)<=now() AS overdue, to_char(COALESCE(c.due_date, (c.completed_at AT TIME ZONE 'Europe/Oslo')::date, CASE WHEN c.completed THEN (c.created_at AT TIME ZONE 'Europe/Oslo')::date END), 'YYYY-MM-DD') AS calendar_date, (c.completed AND c.completed_at > chore_deadline(c.due_date,c.due_time)) AS completed_late, c.series_id, c.cooperative, c.template_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at,
+       c.is_quick, c.removed_at, c.completed, c.due_time, chore_deadline(c.due_date,c.due_time)<=now() AS overdue, to_char(COALESCE(c.due_date, (c.completed_at AT TIME ZONE 'Europe/Oslo')::date, CASE WHEN c.completed THEN (c.created_at AT TIME ZONE 'Europe/Oslo')::date END), 'YYYY-MM-DD') AS calendar_date, (c.completed AND c.completed_at > chore_deadline(c.due_date,c.due_time)) AS completed_late, c.series_id, c.cooperative, c.template_id, to_char(c.window_start, 'YYYY-MM-DD') AS window_start, c.completed_at,
        COALESCE((SELECT string_agg(u.display_name, ', ' ORDER BY u.display_name) FROM chore_members m JOIN users u ON u.id=m.user_id WHERE m.chore_id=c.id),'Unassigned') AS display_name,
        ARRAY(SELECT m.user_id FROM chore_members m WHERE m.chore_id=c.id) AS member_ids
        FROM chores c
@@ -349,6 +350,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       .at(-1).key;
     const chores = scoped.filter(
       (c) =>
+        (choreType === "all" || (choreType === "quick" ? c.is_quick : !c.is_quick)) &&
         (view !== "calendar" ||
           !c.calendar_date ||
           (c.calendar_date &&
@@ -377,6 +379,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       member,
       status,
       view,
+      choreType,
       users,
       activeUsers,
       requestMembers: (
@@ -392,7 +395,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       adjustmentRequestId: crypto.randomUUID(),
       series,
       upcomingSchedules: series.filter((s) =>
-        s.active && (s.next_on || s.starts_on) > today && ["all", "open"].includes(status) &&
+        choreType !== "quick" && s.active && (s.next_on || s.starts_on) > today && ["all", "open"].includes(status) &&
         (!member || (member === "unassigned" ? !s.member_ids.length : s.member_ids.includes(Number(member))))
       ).sort((a, b) => (a.next_on || a.starts_on).localeCompare(b.next_on || b.starts_on) || a.id - b.id),
       library,

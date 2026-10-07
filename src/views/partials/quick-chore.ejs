@@ -1,0 +1,16 @@
+<dialog class="quick-chore-dialog" data-quick-dialog aria-labelledby="quick-chore-title">
+<div class="quick-chore-heading"><h2 id="quick-chore-title"><%= t("Quick Chore") %></h2><button type="button" class="button subtle" data-quick-close aria-label="<%= t('Cancel') %>">×</button></div>
+<form method="post" action="/admin/quick-chores" class="stack">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label><%= t("Task title") %><input name="title" maxlength="160" required autofocus></label>
+<div data-shared-points><label><%= t("Points per member") %><input type="number" name="points" min="0" max="1000000" step="1" value="0" required></label></div>
+<label class="individual-points-option"><input type="checkbox" name="individualPoints" value="true" data-individual-points><span><%= t("Set individual points for each member") %></span></label>
+<label><%= t("Assignment type") %><select name="mode"><option value="individual"><%= t("Individual — separate tasks") %></option><option value="cooperative"><%= t("Co-op — shared task") %></option></select></label>
+<%- include('assignment-members',{people:activeUsers,defaultPoints:0}) %>
+<p class="form-hint"><%= t("Choose at least one member. Co-op chores need at least two members and share completion.") %></p>
+<label class="individual-points-option"><input type="checkbox" name="hasDeadline" value="true" data-quick-deadline><span><%= t("Set a due date and time") %></span></label>
+<div data-quick-dates class="stack" hidden><label><%= t("Due date") %><input type="date" name="dueDate" min="2000-01-01" max="2100-12-31" disabled></label><label><%= t("Due time (optional)") %><input type="time" name="dueTime" step="60" disabled></label><p class="form-hint"><%= t("Times use Europe/Oslo. Leave blank for an end-of-day deadline.") %></p></div>
+<p class="form-hint"><%= t("Quick chores are assigned directly and are not saved in the chore library.") %></p>
+<div class="quick-chore-actions"><button type="button" class="button subtle" data-quick-close><%= t("Cancel") %></button><button type="submit" class="button primary"><%= t("Assign") %></button></div>
+</form>
+</dialog>
