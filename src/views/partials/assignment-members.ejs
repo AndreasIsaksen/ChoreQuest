@@ -1,0 +1,6 @@
+<fieldset class="member-picker wide"><legend><%= t("Members") %></legend>
+<% people.forEach(person=>{ %><div class="assignment-member" data-member-row>
+<label><input type="checkbox" name="memberIds" value="<%= person.id %>" data-member-select><span><%= person.display_name %></span></label>
+<label class="member-points" data-member-points hidden><input type="number" name="memberPoints_<%= person.id %>" min="0" max="1000000" step="1" value="<%= defaultPoints %>" aria-label="<%= t('Points for {name}',{name:person.display_name}) %>" disabled><span><%= t("points") %></span></label>
+</div><% }) %>
+</fieldset>

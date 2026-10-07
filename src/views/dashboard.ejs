@@ -185,7 +185,7 @@
 <h3><%= item.title %></h3>
 <% if(item.description) { %><p><%= item.description %></p><% } %>
 <p><%= t(item.weekdays ? "Next occurrence" : "Starts") %> <%= formatDate(item.next_on || item.starts_on) %> · <%- include('partials/schedule-summary',{item}) %></p>
-<p><%= item.points %> <%= t("points per member") %><% if(isAdmin || item.cooperative) { %> · <%= item.display_name || t("Unassigned") %><% } %></p>
+<% if(item.custom_points) { %><%- include('partials/member-rewards',{item}) %><% } else { %><p><%= item.points %> <%= t("points per member") %><% if(isAdmin || item.cooperative) { %> · <%= item.display_name || t("Unassigned") %><% } %></p><% } %>
 <% if(isAdmin) { %><a class="text-link" href="/dashboard?section=administration#schedule-<%= item.id %>"><%= t("Recurring schedules") %></a><% } %>
 </article><% }) %>
 </section>
@@ -301,7 +301,7 @@
 <div class="chore-copy">
 <h3 class="<%= c.completed?'completed-title':'' %>">
 <%= c.title %>
-</h3><span class="badge pending"><%= c.points %> <%= t("points") %></span>
+</h3><% if(isAdmin && c.custom_points) { %><%- include('partials/member-rewards',{item:c}) %><% } else { %><span class="badge pending"><%= c.points %> <%= t("points") %></span><% } %>
 <% if(c.description) { %>
 <p>
 <%= c.description %>

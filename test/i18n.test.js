@@ -25,6 +25,25 @@ test("weekday summaries show translated days and the saved deadline time", () =>
   }
 });
 
+test("individual point controls and reward summaries translate and escape member names", () => {
+  const name = 'Member <script>alert(1)</script>';
+  for (const language of ["en","nb"]) {
+    const t = translator(language);
+    const controls = ejs.render(fs.readFileSync(path.join(__dirname,"../src/views/partials/assignment-members.ejs"),"utf8"), {
+      people:[{id:2,display_name:name}], defaultPoints:7, t,
+    });
+    assert.match(controls,/name="memberPoints_2"/);
+    assert.match(controls,/value="7"/);
+    assert.doesNotMatch(controls,/<script>/);
+    const summary = ejs.render(fs.readFileSync(path.join(__dirname,"../src/views/partials/member-rewards.ejs"),"utf8"), {
+      item:{custom_points:true,point_rewards:[{name,points:13}]},t,
+    });
+    assert.doesNotMatch(summary,/<script>/);
+    assert.match(summary,/13/);
+    assert.ok(summary.includes(language==="nb"?"Poeng per medlem":"Points by member"));
+  }
+});
+
 test("populated member/admin views translate copy without changing user data or form values", () => {
   const userContent = "Chores <script>alert(1)</script>";
   const chores = [false, true].map((completed, i) => ({

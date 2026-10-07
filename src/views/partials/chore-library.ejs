@@ -15,8 +15,9 @@
 <details class="decision"><summary><%= t("Administer chore") %></summary>
 <form method="post" action="/admin/library/<%= item.id %>/assign" class="stack">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-<label><%= t("Points per member") %><input type="number" name="points" min="0" max="1000000" step="1" value="<%= item.points %>" required></label><p class="form-hint"><%= t("Saves the library value for this and future plans. Existing tasks and schedules retain their points.") %></p>
-<%- include('assignees',{people:activeUsers,selected:[],multiple:true}) %>
+<label class="individual-points-option"><input type="checkbox" name="individualPoints" value="true" data-individual-points><span><%= t("Set individual points for each member") %></span></label>
+<div data-shared-points class="stack"><label><%= t("Points per member") %><input type="number" name="points" min="0" max="1000000" step="1" value="<%= item.points %>" required></label><p class="form-hint"><%= t("Saves the library value for this and future plans. Existing tasks and schedules retain their points.") %></p></div>
+<%- include('assignment-members',{people:activeUsers,defaultPoints:item.points}) %>
 <label><%= t("Assignment type") %><select name="mode"><option value="individual"><%= t("Individual — separate tasks") %></option><option value="cooperative"><%= t("Co-op — shared task") %></option></select></label>
 <p class="form-hint"><%= t("Individual: each person completes their own task. Co-op: select at least two members; anyone in the group can mark it done for everyone. Leave members empty for an unassigned individual task.") %></p>
 <label><%= t("Schedule") %><select name="schedule" data-schedule><option value="once"><%= t("One-off task") %></option><option value="recurring"><%= t("Recurring completion window") %></option><option value="weekdays"><%= t("Selected weekdays") %></option></select></label>
@@ -33,6 +34,7 @@
 <section class="panel form-panel"><div class="panel-heading"><h2><%= t("Recurring schedules") %></h2></div>
 <% if(!series.length) { %><p class="padded muted"><%= t("Administer a saved chore above to create a recurring schedule.") %></p><% } %>
 <% series.forEach(item=>{ %><details class="decision padded" id="schedule-<%= item.id %>"><summary><%= item.title %> · <%= t(item.cooperative?'Co-op · ':'') %><%- include('schedule-summary',{item}) %> · <%= t(item.active?'Active':'Paused') %></summary>
+<%- include('member-rewards',{item}) %>
 <p class="small muted"><%= t("Starts") %> <%= formatDate(item.starts_on) %><%= t(". Each period is generated when it begins. Previous completions stay in the agenda.") %></p>
 <form class="form-grid" method="post" action="/admin/series/<%= item.id %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <%- include('assignees',{people:activeUsers,selected:item.member_ids,multiple:item.cooperative}) %>

@@ -1,0 +1,1 @@
+<% if(item.custom_points) { %><p class="small"><strong><%= t("Points by member") %></strong><br><% (item.point_rewards || []).forEach((person,index)=>{ %><%= index ? ' · ' : '' %><%= person.name %>: <%= person.points %> <%= t("points") %><% }) %></p><% } %>

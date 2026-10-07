@@ -6,6 +6,26 @@ function revealTarget() {
 }
 revealTarget();
 window.addEventListener("hashchange", revealTarget);
+for (const toggle of document.querySelectorAll("[data-individual-points]")) {
+  const form = toggle.closest("form");
+  function syncPoints() {
+    const individual = toggle.checked;
+    form.querySelector("[data-shared-points]").hidden = individual;
+    const shared = form.querySelector('[name="points"]');
+    shared.disabled = individual;
+    shared.required = !individual;
+    for (const row of form.querySelectorAll("[data-member-row]")) {
+      const selected = row.querySelector("[data-member-select]").checked;
+      const field = row.querySelector("[data-member-points]");
+      const input = field.querySelector("input");
+      field.hidden = !individual || !selected;
+      input.disabled = field.hidden;
+      input.required = !field.hidden;
+    }
+  }
+  form.addEventListener("change", syncPoints);
+  syncPoints();
+}
 for (const selector of document.querySelectorAll("[data-schedule]")) {
   const form = selector.closest("form");
   function syncSchedule() {
