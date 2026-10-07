@@ -71,7 +71,7 @@ test("populated member/admin views translate copy without changing user data or 
           pointHistory: [{member_name:'English',actor_name:'Admin',amount:-5,account_type:'weekly',balance_before:10,balance_after:5,reason:'Correction',edited_at:'2026-09-28 12:00:00'}], historyCount:1,historyPage:1,historyMember:'',adjustmentRequestId:'test-request',
           users: people, activeUsers: people.slice(0, 2),
           chores, allChores: chores, selectedMonth: "2026-09", today: "2026-09-28",
-          view: "calendar", member: "", status: "all", days: calendarDays("2026-09"),
+          choreType: "all", view: "calendar", member: "", status: "all", days: calendarDays("2026-09"),
           stats: { total: 2, completed: 1, overdue: 1, pending: 1 }, flash: "Your change has been saved.",
           library: [{ id: 1, title: userContent, description: "", points: 10 }],
           upcomingSchedules: [{ id: 3, title: userContent, description: userContent, cooperative: true, display_name: "English", points: 10, starts_on: "2026-10-05", interval_count: 1, interval_unit: "weeks" }],
