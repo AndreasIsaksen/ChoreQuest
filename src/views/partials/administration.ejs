@@ -1,4 +1,5 @@
-<nav class="chore-shortcuts" aria-label="<%= t('Administration tools') %>"><a class="button subtle" href="#point-accounts"><%= t('Member points') %></a><a class="button subtle" href="#point-history"><%= t('Adjustment history') %></a><a class="button subtle" href="#chore-library"><%= t('Chore builder') %></a></nav>
+<nav class="chore-shortcuts" aria-label="<%= t('Administration tools') %>"><a class="button subtle" href="#chore-library"><%= t('Chore builder') %></a><a class="button subtle" href="#point-accounts"><%= t('Member points') %></a><a class="button subtle" href="#point-history"><%= t('Adjustment history') %></a></nav>
+<%- include('chore-library') %>
 <section class="panel form-panel" id="point-accounts">
 <div class="panel-heading"><div><span class="eyebrow"><%= t('ADMIN TOOLS') %></span><h2><%= t('Member points') %></h2><p class="muted"><%= t('Add or withdraw points from either account. Every adjustment requires a reason and is recorded below.') %></p></div></div>
 <div class="members-grid">
@@ -20,4 +21,3 @@
 <% pointHistory.forEach(entry=>{ %><article class="request-card"><div class="request-title"><strong><%= entry.member_name %></strong><span class="badge <%= entry.amount>0?'completed':'overdue' %>"><%= entry.amount>0?'+':'' %><%= entry.amount %> <%= t('points') %></span></div><p><%= t(entry.account_type==='weekly'?'Weekly points':'Permanent points') %>: <strong><%= entry.balance_before %> → <%= entry.balance_after %></strong></p><p class="request-details"><%= entry.reason %></p><p class="muted small"><%= entry.edited_at %> · <%= t('By') %> <%= entry.actor_name || t('Deleted administrator') %></p></article><% }) %>
 <nav class="chore-shortcuts padded" aria-label="<%= t('History pages') %>"><% if(historyPage>1) { %><a class="button subtle" href="/dashboard?section=administration&historyMember=<%= historyMember %>&historyPage=<%= historyPage-1 %>#point-history"><%= t('Newer edits') %></a><% } %><span><%= t('Page {page} · {count} edits',{page:historyPage,count:historyCount}) %></span><% if(historyPage*50<historyCount) { %><a class="button subtle" href="/dashboard?section=administration&historyMember=<%= historyMember %>&historyPage=<%= historyPage+1 %>#point-history"><%= t('Older edits') %></a><% } %></nav>
 </section>
-<%- include('chore-library') %>

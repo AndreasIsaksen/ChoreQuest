@@ -1,0 +1,40 @@
+<aside>
+<section class="panel form-panel">
+<div class="panel-heading">
+<div>
+<span class="eyebrow"><%= t("LET’S FIND A WAY") %></span>
+<h2><%= t("Make a request") %></h2>
+</div>
+</div>
+<form action="/requests" method="post" class="stack padded">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label><%= t("Send to member (optional)") %><select name="recipientId"><option value=""><%= t("No recipient") %></option><% (typeof requestMembers !== "undefined" ? requestMembers : activeUsers).filter(p=>p.id!==user.id).forEach(p=>{ %><option value="<%= p.id %>"><%= p.display_name %></option><% }) %></select></label>
+<label><%= t("What would help?") %><select name="requestType" required>
+<% Object.entries(requestLabels).forEach(([value,label])=>{ %>
+<option value="<%= value %>">
+<%= t(label) %>
+</option>
+<% }) %>
+</select>
+</label>
+<label><%= t("Related chore") %><select name="choreId">
+<option value=""><%= t("General request") %></option>
+<% allChores.filter(c=>!c.removed_at && c.member_ids.includes(user.id)).forEach(c=>{ %>
+<option value="<%= c.id %>">
+<%= c.title %>
+</option>
+<% }) %>
+</select>
+</label>
+<label><%= t("Suggested due date") %> <span class="optional"><%= t("(optional)") %></span>
+<input type="date" name="proposedDueDate">
+</label>
+<label><%= t("Tell us a little more") %><textarea name="details" rows="4" placeholder="<%= t("Explain what you’d like to change…") %>" maxlength="2000" required>
+</textarea>
+</label>
+<p class="form-hint"><%= t("Your chore stays with you until an admin approves a change.") %></p>
+<button class="button primary full"><%= t("Send request") %> <%- include('icon',{name:'arrow'}) %>
+</button>
+</form>
+</section>
+</aside>

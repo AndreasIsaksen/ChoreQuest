@@ -2155,3 +2155,114 @@ textarea::placeholder {
 .quick-chore-heading h2 { margin: 0; }
 .quick-chore-actions { justify-content: flex-end; }
 .welcome [data-quick-open] { margin-left: 8px; }
+
+/* Comfortable, visibly framed actions across touch and keyboard input. */
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: var(--white);
+}
+.view-switch a { width: 44px; height: 44px; }
+.filters input, .filters select, .filters .button { min-height: 44px; }
+.language-switch span { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
+.text-link {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--sage);
+}
+.text-link:hover { background: var(--color-e2e8d9); }
+.chore-row > form { margin: 0; }
+.chore-row form .complete-button {
+  width: 44px;
+  height: 44px;
+  margin-top: 0;
+  border: 1.5px solid var(--color-cbd5c3);
+  background: var(--white);
+}
+.chore-row form .complete-button:empty:after { width: 20px; height: 20px; }
+.chore-row .chore-copy form { margin: 0; }
+.decision summary,
+.notification-settings summary {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--color-f5f7ef);
+  overflow-wrap: anywhere;
+}
+.notification-settings .notification-option,
+.individual-points-option { min-height: 44px; }
+.welcome-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.welcome [data-quick-open] { margin-left: 0; }
+.quick-chore-dialog { text-align: left; }
+.main > .panel.padded { padding-top: 22px; margin: 24px 0; }
+.main > .panel.padded p + p { margin-top: 8px; }
+.panel-heading > div,
+.account > div,
+.request-title > small { min-width: 0; overflow-wrap: anywhere; }
+.request-title { gap: 12px; flex-wrap: wrap; }
+.chore-meta > span { min-width: 0; overflow-wrap: anywhere; }
+.chore-meta .tiny-avatar { flex-shrink: 0; }
+.member-requests > aside { grid-column: 2; grid-row: 1; }
+.member-requests > .panel { grid-column: 1; grid-row: 1; }
+.error-page { max-width: 640px; }
+.error-page .panel { display: grid; gap: 20px; text-align: center; }
+.error-page .language-form { justify-self: center; }
+
+@media (max-width: 999px) {
+  .member-requests > aside,
+  .member-requests > .panel { grid-column: auto; grid-row: auto; }
+  .account .icon-button { min-width: 44px; }
+}
+@media (max-width: 599px) {
+  .sidebar { padding: 16px 12px 12px; }
+  .sidebar > .brand { justify-content: center; }
+  .sidebar nav { margin-top: 16px; gap: 4px; }
+  .nav-item { min-height: 60px; border: 1px solid var(--line); }
+  .account { margin-top: 12px; padding-top: 12px; }
+  .account strong { overflow-wrap: anywhere; }
+  .account form { flex-shrink: 0; }
+  .topbar { gap: 8px; padding: 12px 16px; }
+  .breadcrumb { flex: 1 1 70%; font-size: 12px; }
+  .role-badge { margin-left: 0; }
+  .topbar .language-form { margin-left: auto; }
+  .main { padding: 20px 12px; }
+  .welcome { padding: 24px 20px; text-align: center; }
+  .welcome > div:first-child { min-width: 0; width: 100%; }
+  .welcome h1 { font-size: 30px; letter-spacing: -1px; }
+  .welcome p { overflow-wrap: anywhere; }
+  .welcome-actions { flex-direction: column; }
+  .page-heading { text-align: center; }
+  .page-heading h1 { font-size: 28px; letter-spacing: -1px; }
+  .chore-shortcuts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .button { font-size: 14px; min-height: 48px; overflow-wrap: anywhere; }
+  input, select, textarea,
+  .filters input, .filters select { min-height: 48px; font-size: 16px; min-width: 0; }
+  .filters { display: grid; grid-template-columns: minmax(0, 1fr); padding: 0 16px 20px; }
+  .filters .button { min-height: 48px; font-size: 14px; }
+  .panel-heading { padding: 20px 16px; flex-wrap: wrap; }
+  .panel-heading h2 { font-size: 19px; }
+  .padded { padding-left: 16px; padding-right: 16px; }
+  .form-grid { padding: 0 16px 20px; }
+  .form-footer { align-items: stretch; flex-direction: column; }
+  .chore-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); padding: 18px 16px; gap: 10px; }
+  .chore-row > .badge { grid-column: 2; grid-row: 1; justify-self: end; }
+  .chore-row > .chore-copy { grid-column: 2; grid-row: 2; }
+  .chore-row > form, .chore-row > .static { grid-column: 1; grid-row: 1 / span 2; }
+  .chore-copy h3 { font-size: 15px; }
+  .badge { font-size: 11px; white-space: normal; }
+  .member-card { padding: 20px 16px; }
+  .members-grid { padding: 0 16px 20px; }
+  .library-grid { padding: 12px; }
+  .library-card { padding: 16px; }
+  .quick-chore-dialog { padding: 20px 16px; max-height: calc(100dvh - 24px); }
+  .quick-chore-actions { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
+  .login-story .brand { justify-content: center; }
+  .login-panel { padding: 24px 20px; }
+  .login-form > .eyebrow, .login-form h2, .login-form > .muted { text-align: center; }
+  .login-actions { justify-content: center; }
+  .panel-footer { margin-top: 24px; text-align: center; }
+}

@@ -79,6 +79,21 @@ test("populated member/admin views translate copy without changing user data or 
           requestLabels: { different_chore: "Change a chore", due_date_change: "Change a due date", other: "Something else" },
           requests: ["pending", "approved", "rejected"].map((status, i) => ({ id: i + 1, status, request_type: "other", display_name: "English", chore_title: userContent, details: userContent, proposed_due_date: "2026-09-30", admin_note: "My response" })),
         }, { filename: path.join(__dirname, "../src/views/dashboard.ejs") });
+        // Task priority must also follow DOM order for keyboard and screen readers.
+        if (section === "chores") {
+          assert.ok(html.indexOf('id="household-plan"') < html.indexOf('id="upcoming-chores"'));
+          assert.ok(html.indexOf('id="household-plan"') < html.indexOf('aria-label="' + t('Your points') + '"'));
+        }
+        if (section === "requests") {
+          const form = html.indexOf('action="/requests"');
+          const history = html.indexOf('class="request-card"');
+          assert.ok(isAdmin ? history < form : form < history);
+          assert.equal(html.match(/action="\/requests"/g).length, 1);
+        }
+        if (section === "administration") {
+          assert.ok(html.indexOf('id="chore-library"') < html.indexOf('id="point-accounts"'));
+        }
+        assert.ok(html.indexOf('id="push-device"') < html.indexOf('class="main-footer"'));
         if (section !== "household") assert.match(html, /Chores &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
         assert.doesNotMatch(html, /<script>alert/);
         assert.match(html, /English/);
