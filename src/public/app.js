@@ -1,11 +1,18 @@
 function revealTarget() {
   const id = location.hash.slice(1);
   if (!id) return;
-  const target = document.getElementById(id);
-  if (target instanceof HTMLDetailsElement) target.open = true;
+  const target = document.getElementById(id) || (id.startsWith("chore-") ? document.getElementById("household-plan") : null);
+  if (!target) return;
+  for (let element = target; element; element = element.parentElement) {
+    if (element instanceof HTMLDetailsElement) element.open = true;
+  }
+  target.scrollIntoView({ block: "start" });
+  target.tabIndex = -1;
+  target.focus({ preventScroll: true });
 }
-revealTarget();
 window.addEventListener("hashchange", revealTarget);
+window.addEventListener("load", revealTarget);
+window.addEventListener("pageshow", () => window.requestAnimationFrame(revealTarget));
 for (const toggle of document.querySelectorAll("[data-individual-points]")) {
   const form = toggle.closest("form");
   function syncPoints() {
@@ -56,6 +63,22 @@ for (const selector of document.querySelectorAll("[data-schedule]")) {
   syncSchedule();
 }
 
+for (const form of document.querySelectorAll("[data-series-editor]")) {
+  const count = form.querySelector("[data-member-count]");
+  const template = count.textContent.replace(/\d+/, "{count}");
+  function syncMembers() {
+    const choices = [...form.querySelectorAll("[data-member-select]")];
+    const selected = choices.filter(choice => choice.checked).length;
+    count.textContent = template.replace("{count}", selected);
+    if (choices[0]) choices[0].setCustomValidity(
+      form.elements.mode.value === "cooperative" && selected < 2
+        ? form.querySelector("[data-member-guidance]").textContent.trim() : "",
+    );
+  }
+  form.addEventListener("change", syncMembers);
+  syncMembers();
+}
+
 for (const form of document.querySelectorAll("[data-language-form]")) {
   form.addEventListener("change", (event) => {
     if (event.target.name !== "language") return;
@@ -102,3 +125,5 @@ for (const opener of document.querySelectorAll("[data-quick-open]")) {
   });
   syncDeadline();
 }
+// Reveal the action target after conditional form fields have their final layout.
+revealTarget();

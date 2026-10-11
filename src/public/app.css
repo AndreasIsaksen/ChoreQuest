@@ -1945,12 +1945,6 @@ textarea::placeholder {
 .member-card .decision {
   border-top: 1px solid var(--line);
 }
-.library-grid {
-  display: grid;
-  gap: 16px;
-  padding: 16px;
-  grid-template-columns: minmax(0, 1fr);
-}
 .library-card {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -2022,11 +2016,6 @@ textarea::placeholder {
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 20px;
-}
-@media (min-width: 1000px) {
-  .library-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .language-form {
@@ -2256,7 +2245,6 @@ textarea::placeholder {
   .badge { font-size: 11px; white-space: normal; }
   .member-card { padding: 20px 16px; }
   .members-grid { padding: 0 16px 20px; }
-  .library-grid { padding: 12px; }
   .library-card { padding: 16px; }
   .quick-chore-dialog { padding: 20px 16px; max-height: calc(100dvh - 24px); }
   .quick-chore-actions { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
@@ -2265,4 +2253,94 @@ textarea::placeholder {
   .login-form > .eyebrow, .login-form h2, .login-form > .muted { text-align: center; }
   .login-actions { justify-content: center; }
   .panel-footer { margin-top: 24px; text-align: center; }
+}
+
+/* Administration lists stay compact until a chore or member schedule is opened. */
+.library-list,
+.schedule-list {
+  padding: 0 16px 16px;
+}
+.library-list .library-card,
+.schedule-group {
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.form-panel .compact-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 16px 8px;
+  min-height: 60px;
+  color: var(--ink);
+  list-style: none;
+}
+.compact-summary::before {
+  content: '›';
+  flex: 0 0 12px;
+  font-size: 24px;
+  line-height: 1;
+  text-align: center;
+}
+details[open] > .compact-summary::before {
+  transform: rotate(90deg);
+}
+.compact-title {
+  flex: 1 1 150px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.reward-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-basis: 100%;
+}
+.reward-chip {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--color-f5f7ef);
+  color: var(--color-314b36);
+  font-size: 12px;
+  font-weight: 500;
+}
+.compact-content {
+  padding: 0 8px 20px;
+}
+.schedule-detail {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-top: 12px;
+  min-width: 0;
+}
+.schedule-detail > .compact-summary {
+  padding: 14px;
+}
+.schedule-detail > .compact-summary > .muted {
+  flex-basis: 100%;
+}
+.schedule-content {
+  padding: 0 14px 18px;
+}
+.weekday-picker {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.weekday-picker label {
+  flex: 0 0 auto;
+}
+[id^="library-"],
+[id^="schedule-"],
+[id^="chore-"],
+#household-plan,
+#recurring-schedules,
+#point-history {
+  scroll-margin-top: 24px;
 }

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const ejs = require("ejs");
 const { translator } = require("../src/i18n");
-const { formatDate, calendarDays } = require("../src/helpers");
+const { formatDate, calendarDays, groupSchedulesByTitle } = require("../src/helpers");
 const norwegian = require("../src/locales/nb.json");
 
 test("dates and interpolated messages use the selected language", () => {
@@ -57,6 +57,7 @@ test("populated member/admin views translate copy without changing user data or 
     role: id === 1 ? "admin" : "member", deleted_at: id === 3,
     weekly_points: 10, permanent_points: 20,
   }));
+  const sampleSeries = [true, false].map((active, i) => ({ id: i + 1, title: userContent, cooperative: active, display_name: "English", points: 10, point_rewards: [{ id: 1, name: "English", points: 10 },{ id: 2, name: "English", points: 10 }], member_ids: [1, 2], starts_on: "2026-09-01", interval_count: i + 1, interval_unit: "weeks", active }));
   for (const language of ["en", "nb"]) {
     const t = (key, values) => {
       assert.ok(key === "" || Object.hasOwn(norwegian, key), `Missing translation: ${key}`);
@@ -75,7 +76,7 @@ test("populated member/admin views translate copy without changing user data or 
           stats: { total: 2, completed: 1, overdue: 1, pending: 1 }, flash: "Your change has been saved.",
           library: [{ id: 1, title: userContent, description: "", points: 10 }],
           upcomingSchedules: [{ id: 3, title: userContent, description: userContent, cooperative: true, display_name: "English", points: 10, starts_on: "2026-10-05", interval_count: 1, interval_unit: "weeks" }],
-          series: [true, false].map((active, i) => ({ id: i + 1, title: userContent, cooperative: active, member_ids: [1, 2], starts_on: "2026-09-01", interval_count: i + 1, interval_unit: "weeks", active })),
+          series: sampleSeries, scheduleGroups: groupSchedulesByTitle(sampleSeries),
           requestLabels: { different_chore: "Change a chore", due_date_change: "Change a due date", other: "Something else" },
           requests: ["pending", "approved", "rejected"].map((status, i) => ({ id: i + 1, status, request_type: "other", display_name: "English", chore_title: userContent, details: userContent, proposed_due_date: "2026-09-30", admin_note: "My response" })),
         }, { filename: path.join(__dirname, "../src/views/dashboard.ejs") });
@@ -91,6 +92,7 @@ test("populated member/admin views translate copy without changing user data or 
           assert.equal(html.match(/action="\/requests"/g).length, 1);
         }
         if (section === "administration") {
+          assert.ok(html.indexOf('id="chore-builder"') < html.indexOf('id="chore-library"'));
           assert.ok(html.indexOf('id="chore-library"') < html.indexOf('id="point-accounts"'));
         }
         assert.ok(html.indexOf('id="push-device"') < html.indexOf('class="main-footer"'));

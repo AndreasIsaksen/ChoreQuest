@@ -1,0 +1,10 @@
+<section class="panel form-panel" id="chore-builder">
+<div class="panel-heading"><div><h2><%= t("Chore builder") %></h2><p class="muted"><%= t("Create a new chore") %></p></div></div>
+<div class="padded" id="new-chore">
+<form method="post" action="/admin/chores" class="form-grid">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label class="wide"><%= t("Chore name") %><input name="title" placeholder="<%= t("e.g. Laundry") %>" maxlength="160" required></label>
+<label class="wide"><%= t("Description (optional)") %><textarea name="description" rows="2" maxlength="2000" placeholder="<%= t("What does a job well done look like?") %>"></textarea></label>
+<label><%= t("Points per member") %><input type="number" name="points" min="0" max="1000000" step="1" value="0" required></label>
+<div class="form-footer wide"><p><%= t("Save the chore first. Set members and dates in its administration panel.") %></p><button class="button primary"><%= t("Save to library") %></button></div>
+</form></div></section>

@@ -11,8 +11,15 @@ test(
   "admin accounts, unassigned chores and recurring windows against PostgreSQL",
   { skip: !process.env.TEST_DATABASE_URL },
   async (t) => {
-    const db = new Pool({ connectionString: process.env.TEST_DATABASE_URL });
-    t.after(() => db.end());
+    const root = new Pool({ connectionString: process.env.TEST_DATABASE_URL });
+    const schema = "admin_test_" + process.pid;
+    await root.query(`CREATE SCHEMA ${schema}`);
+    const db = new Pool({ connectionString: process.env.TEST_DATABASE_URL, options: `-c search_path=${schema}` });
+    t.after(async () => {
+      await db.end();
+      await root.query(`DROP SCHEMA ${schema} CASCADE`);
+      await root.end();
+    });
     await db.query(fs.readFileSync("db/init.sql", "utf8"));
     await db.query(
       "INSERT INTO chores(user_id,title,due_date,completed) VALUES(2,'Existing chore','2026-01-01',true)",
@@ -275,7 +282,7 @@ test(
         startsOn, dueDate: "", intervalCount: "1", intervalUnit: "weeks", points: "7",
       }, admin);
       assert.equal(response.status, 302);
-      assert.equal(response.headers.get("location"), "/dashboard?section=chores");
+      assert.match(response.headers.get("location"), /^\/dashboard\?section=chores#upcoming-series-\d+$/);
     }
     const futureSchedules = (
       await db.query("SELECT * FROM chore_series WHERE template_id=$1", [futureTemplate.id])
@@ -327,7 +334,7 @@ test(
         admin,
       );
       assert.equal(response.status, 302);
-      assert.equal(response.headers.get("location"), "/dashboard?section=chores");
+      assert.match(response.headers.get("location"), /^\/dashboard\?section=chores#chore-\d+$/);
     }
     const undatedTasks = (
       await db.query("SELECT * FROM chores WHERE template_id=$1", [undatedTemplate.id])

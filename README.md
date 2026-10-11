@@ -110,7 +110,7 @@ Under **Household**, reset the passwords of `alex` and `sam` if you want to use 
 
 ### 4. Create your first chore
 
-Open **Administration**, add a chore to the **Chore library**, then use **Administer chore** to select participants, assignment type, and schedule. Creating a library entry alone does not assign work. Members see their assignments under **Chores** and can complete them once their start date arrives.
+Open **Administration** and use the **Chore builder** to save a chore. The separate **Chore library** lists saved chores by name; expand a chore and use **Administer chore** to select participants, assignment type, and schedule. Creating a library entry alone does not assign work. Members see their assignments under **Chores** and can complete them once their start date arrives.
 
 Recurring assignments with a future start date appear under **Upcoming recurring chores** for the assigned members and administrators. The first task is generated when that date arrives. After administering a chore, you are taken to the household plan to review the assignment. Chores without a deadline also remain visible below the month calendar.
 
@@ -119,6 +119,10 @@ Choose **Selected weekdays** when administering a library chore to repeat on spe
 The optional **Due time** applies to one-off chores, interval schedules and weekday schedules. For example, `14:00` means 14:00 in Europe/Oslo on the due date, including daylight-saving changes. Interval chores use that time on the last day of each completion window; weekday chores are due on their selected day. Leave the time blank for the existing end-of-day deadline. Overdue status, points deductions, late completion labels and one-hour reminders all use the chosen time.
 
 In **Administer chore**, check **Set individual points for each member** to replace the shared points field with a points input beside each selected member. These values apply to that assignment, including future recurring tasks, while keeping the library default. Co-op chores still complete together, but each participant earns or loses their own assigned points. Zero points are allowed. Turn the option off to use the shared value again.
+
+**Recurring schedules** groups plans by chore name and shows every assigned member and their points in the compact row. Expand a chore, then a member schedule, to adjust individual/co-op type, the selected members, shared or individual points, and active/paused state. Changes apply to future periods; generated tasks retain their members, type, rewards and completion history. Selecting several members in individual mode creates a separate future schedule for each member. Co-op requires at least two members. These edits keep the library defaults and saved timing.
+
+Actions return to the affected chore, schedule, or history list. Filters and view switches return to the household plan; task status and assignment edits preserve the current view and filters. If a changed task no longer matches the filters, focus returns to the filtered plan.
 
 ## Configuration and remote access
 

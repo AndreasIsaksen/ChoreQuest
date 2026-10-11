@@ -8,7 +8,7 @@ const bcrypt = require("bcrypt");
 const pool = require("./db");
 const { migrate } = require("./migrate");
 const { installAdmin, date, transaction, problem } = require("./admin");
-const { dateKey, formatDate, calendarDays, todayKey } = require("./helpers");
+const { dateKey, formatDate, calendarDays, todayKey, groupSchedulesByTitle, choreReturnTo } = require("./helpers");
 
 const { translator, languageFromCookie, languageReturnTo } = require("./i18n");
 
@@ -266,7 +266,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       await db.query(
         `SELECT s.*, ${isAdmin ? "s.points" : "COALESCE((SELECT p.points FROM series_participants p WHERE p.series_id=s.id AND p.user_id=$1),s.points)"} AS points,
              EXISTS(SELECT 1 FROM series_participants p WHERE p.series_id=s.id AND p.points IS NOT NULL) AS custom_points,
-             (SELECT jsonb_agg(jsonb_build_object('name',u.display_name,'points',COALESCE(p.points,s.points)) ORDER BY u.display_name) FROM series_members m JOIN users u ON u.id=m.user_id LEFT JOIN series_participants p ON p.series_id=m.series_id AND p.user_id=m.user_id WHERE m.series_id=s.id) AS point_rewards,
+             (SELECT jsonb_agg(jsonb_build_object('id',u.id,'name',u.display_name,'points',COALESCE(p.points,s.points)) ORDER BY u.display_name) FROM series_members m JOIN users u ON u.id=m.user_id LEFT JOIN series_participants p ON p.series_id=m.series_id AND p.user_id=m.user_id WHERE m.series_id=s.id) AS point_rewards,
              to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on,
              to_char(CASE WHEN s.weekdays IS NULL THEN s.starts_on ELSE
                (SELECT min(day::date) FROM generate_series(greatest(s.starts_on,(now() AT TIME ZONE 'Europe/Oslo')::date)::timestamp,
@@ -394,6 +394,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       historyCount,
       adjustmentRequestId: crypto.randomUUID(),
       series,
+      scheduleGroups: groupSchedulesByTitle(series),
       upcomingSchedules: series.filter((s) =>
         choreType !== "quick" && s.active && (s.next_on || s.starts_on) > today && ["all", "open"].includes(status) &&
         (!member || (member === "unassigned" ? !s.member_ids.length : s.member_ids.includes(Number(member))))
@@ -429,7 +430,7 @@ function createApp({ db = pool, env = process.env } = {}) {
     if (!result.rowCount)
       problem("This chore is not assigned to you or has not started yet.", 403);
     req.session.flash = "Your change has been saved.";
-    return res.redirect("/dashboard");
+    return res.redirect(choreReturnTo(req.body.returnTo, result.rows[0].id));
   });
 
   app.post("/requests", requireAuth, async (req, res) => {

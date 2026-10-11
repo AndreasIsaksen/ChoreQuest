@@ -401,5 +401,13 @@
   "Choose at least one member.": "Velg minst ett medlem.",
   "Invalid deadline option.": "Ugyldig fristvalg.",
   "Cancel": "Avbryt",
-  "Due date": "Frist"
+  "Due date": "Frist",
+  "No saved chores yet. Use the chore builder to add one.": "Ingen lagrede oppgaver ennå. Bruk oppgavebyggeren for å legge til en.",
+  "Expand a chore to review and adjust its member schedules.": "Utvid en oppgave for å se og justere medlemmenes planer.",
+  "{count} schedule": "{count} plan",
+  "{count} schedules": "{count} planer",
+  "{count} active": "{count} aktive",
+  "{count} members selected": "{count} medlemmer valgt",
+  "Select members to adjust the group size. Individual mode creates a separate future schedule for each selected member. Co-op requires at least two members.": "Velg medlemmer for å justere gruppestørrelsen. Individuell tildeling oppretter en egen fremtidig plan for hvert valgt medlem. Samarbeid krever minst to medlemmer.",
+  "Changes apply to future periods. Existing tasks keep their members, type and points. Pausing stops new periods; resuming fills missed periods.": "Endringer gjelder fremtidige perioder. Eksisterende oppgaver beholder medlemmer, type og poeng. Pause stopper nye perioder; gjenopptakelse fyller inn manglende perioder."
 }

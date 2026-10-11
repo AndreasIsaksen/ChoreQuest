@@ -154,15 +154,15 @@
 </h2>
 </div>
 <div class="view-switch" aria-label="<%= t("Chore view") %>">
-<a aria-label="<%= t("List view") %>" class="<%= view==='list'?'selected':'' %>" href="/dashboard?section=chores&view=list&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>">
+<a aria-label="<%= t("List view") %>" class="<%= view==='list'?'selected':'' %>" href="/dashboard?section=chores&view=list&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>#household-plan">
 <%- include('partials/icon',{name:'list'}) %>
 </a>
-<a aria-label="<%= t("Calendar view") %>" class="<%= view==='calendar'?'selected':'' %>" href="/dashboard?section=chores&view=calendar&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>">
+<a aria-label="<%= t("Calendar view") %>" class="<%= view==='calendar'?'selected':'' %>" href="/dashboard?section=chores&view=calendar&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>#household-plan">
 <%- include('partials/icon',{name:'calendar'}) %>
 </a>
 </div>
 </div>
-<form class="filters" method="get" action="/dashboard">
+<form class="filters" method="get" action="/dashboard#household-plan">
 <input type="hidden" name="section" value="chores">
 <input type="hidden" name="view" value="<%= view %>">
 <label><%= t("Chore type") %><select name="choreType">
@@ -235,9 +235,10 @@
 <% } %>
 <div class="chore-list">
 <% chores.forEach(c=>{ const late=!c.completed && c.overdue; %>
-<article class="chore-row" id="chore-<%= c.id %>">
+<article class="chore-row" tabindex="-1" id="chore-<%= c.id %>">
 <% if(!c.removed_at && c.member_ids.includes(user.id)) { %>
 <form method="post" action="/chores/<%= c.id %>/toggle">
+<input type="hidden" name="returnTo" value="<%= languageReturnTo %>">
 <input type="hidden" name="completed" value="<%= !c.completed %>">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <button <%= c.window_start && c.window_start>today ? 'disabled' : '' %> class="complete-button <%= c.completed?'checked':'' %>" aria-label="<%= t(c.completed?'Reopen':'Complete') %> <%= c.title %>" title="<%= t(c.completed?'Reopen chore':'Mark complete') %>">
@@ -280,12 +281,13 @@
 <% if(isAdmin && !c.removed_at && c.member_ids.length) { %>
 <details class="decision"><summary><%= t("Change chore status") %></summary>
 <form method="post" action="/admin/chores/<%= c.id %>/status" class="stack">
+<input type="hidden" name="returnTo" value="<%= languageReturnTo %>">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <label><%= t("Status") %><select name="completed"><option value="true" <%= c.completed?'selected':'' %>><%= t("Done") %></option><option value="false" <%= !c.completed?'selected':'' %>><%= t("Not done") %></option></select></label>
 <p class="form-hint"><%= t("Updates points for every participant. Past deductions are balanced in this week’s points.") %></p>
 <button class="button subtle"><%= t("Save status") %></button></form></details>
 <% } %>
-<% if(isAdmin && !c.completed && !c.removed_at) { %><details class="decision"><summary><%= t("Manage assignment") %></summary><form method="post" action="/admin/chores/<%= c.id %>/assign" class="stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<% if(isAdmin && !c.completed && !c.removed_at) { %><details class="decision"><summary><%= t("Manage assignment") %></summary><form method="post" action="/admin/chores/<%= c.id %>/assign" class="stack"><input type="hidden" name="returnTo" value="<%= languageReturnTo %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
 <%- include('partials/assignees',{people:activeUsers,selected:c.member_ids,multiple:c.cooperative}) %>
 <button class="button subtle"><%= t("Save assignment") %></button><p class="form-hint"><%= t("Changes this task only. Co-op completion is shared by all participants.") %></p></form></details><% } %>
 <% if(isAdmin && !c.removed_at) { %><%- include('partials/delete-chore',{label:'Delete task',title:c.title,action:'/admin/chores/'+c.id+'/delete',explanation:'Deletes this task only. The library chore and future recurring periods remain available.'}) %><% } %>
