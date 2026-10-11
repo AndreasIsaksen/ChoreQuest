@@ -104,8 +104,8 @@ test(
     await clear();
 
     const memberLate = await chore('2020-01-05');
-    await post(`/chores/${memberLate}/toggle`, {completed:'true'}, alex);
-    assert.deepEqual(await balances(2), {weekly_points:'10', permanent_points:'-10'});
+    assert.equal(await post(`/chores/${memberLate}/toggle`, {completed:'true'}, alex), 403);
+    assert.deepEqual(await balances(2), {weekly_points:'0', permanent_points:'-10'});
     await set(memberLate, 'true');
     assert.deepEqual(await balances(2), {weekly_points:'20', permanent_points:'-10'});
     await clear();

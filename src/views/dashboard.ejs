@@ -234,14 +234,14 @@
 </div>
 <% } %>
 <div class="chore-list">
-<% chores.forEach(c=>{ const late=!c.completed && c.overdue; %>
+<% chores.forEach(c=>{ const late=!c.completed && c.overdue; const completionClosed=!c.completed && c.due_date && c.due_date<today; %>
 <article class="chore-row" tabindex="-1" id="chore-<%= c.id %>">
 <% if(!c.removed_at && c.member_ids.includes(user.id)) { %>
 <form method="post" action="/chores/<%= c.id %>/toggle">
 <input type="hidden" name="returnTo" value="<%= languageReturnTo %>">
 <input type="hidden" name="completed" value="<%= !c.completed %>">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-<button <%= c.window_start && c.window_start>today ? 'disabled' : '' %> class="complete-button <%= c.completed?'checked':'' %>" aria-label="<%= t(c.completed?'Reopen':'Complete') %> <%= c.title %>" title="<%= t(c.completed?'Reopen chore':'Mark complete') %>">
+<button <%= completionClosed || (c.window_start && c.window_start>today) ? 'disabled' : '' %> class="complete-button <%= c.completed?'checked':'' %>" aria-label="<%= t(c.completed?'Reopen':'Complete') %> <%= c.title %>" <%- completionClosed || (late && c.due_date===today) ? 'aria-describedby="completion-day-' + c.id + '"' : '' %> title="<%= t(completionClosed?'Completion closed after the due date':c.completed?'Reopen chore':'Mark complete') %>">
 <% if(c.completed) { %>
 <%- include('partials/icon',{name:'check'}) %>
 <% } %>
@@ -278,6 +278,9 @@
 </span>
 <% } %>
 </div>
+<% if(!c.removed_at && c.member_ids.includes(user.id) && (completionClosed || (late && c.due_date===today))) { %>
+<p class="form-hint" id="completion-day-<%= c.id %>"><%= t(completionClosed ? 'The completion day has ended. An administrator can update this chore.' : 'You can complete this chore today for full points.') %></p>
+<% } %>
 <% if(isAdmin && !c.removed_at && c.member_ids.length) { %>
 <details class="decision"><summary><%= t("Change chore status") %></summary>
 <form method="post" action="/admin/chores/<%= c.id %>/status" class="stack">

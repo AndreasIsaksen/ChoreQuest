@@ -420,12 +420,12 @@ function createApp({ db = pool, env = process.env } = {}) {
       problem("Invalid completion state.");
     const result = await transaction(db, (c) =>
       c.query(
-        "UPDATE chores SET completed = COALESCE($3::boolean, NOT completed), completed_at=CASE WHEN COALESCE($3::boolean, NOT completed) THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id = $1 AND removed_at IS NULL AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2) AND (window_start IS NULL OR window_start <= (now() AT TIME ZONE 'Europe/Oslo')::date) RETURNING id",
+        "UPDATE chores SET completed = COALESCE($3::boolean, NOT completed), completed_at=CASE WHEN COALESCE($3::boolean, NOT completed) THEN COALESCE(completed_at,now()) ELSE NULL END WHERE id = $1 AND removed_at IS NULL AND EXISTS (SELECT 1 FROM chore_members m WHERE m.chore_id=chores.id AND m.user_id=$2) AND (window_start IS NULL OR window_start <= (now() AT TIME ZONE 'Europe/Oslo')::date) AND (NOT COALESCE($3::boolean, NOT completed) OR member_chore_completion_open(due_date,now())) RETURNING id",
         [req.params.id, req.session.user.id, req.body.completed ?? null],
       ),
     );
     if (!result.rowCount)
-      problem("This chore is not assigned to you or has not started yet.", 403);
+      problem("This chore is not assigned to you, has not started, or its completion day has ended.", 403);
     req.session.flash = "Your change has been saved.";
     return res.redirect(choreReturnTo(req.body.returnTo, result.rows[0].id));
   });
