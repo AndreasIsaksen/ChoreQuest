@@ -1,6 +1,7 @@
 {
   "Upcoming recurring chores": "Kommende gjentakende oppgaver",
-  "These assignments are saved. Their first tasks will appear on the start date.": "Disse tildelingene er lagret. De første oppgavene vises på startdatoen.",
+  "Scheduled chores appear here before they start. Completion becomes available on the start date.": "Planlagte oppgaver vises her før de starter. De kan fullføres fra startdatoen.",
+  "Upcoming": "Kommende",
   "Chores without a deadline are also shown below.": "Oppgaver uten frist vises også nedenfor.",
   "Welcome back · ChoreQuest": "Velkommen tilbake · ChoreQuest",
   "A LITTLE TEAMWORK GOES A LONG WAY": "LITT SAMARBEID GJØR EN STOR FORSKJELL",
@@ -157,6 +158,9 @@
   "Complete": "Fullfør",
   "Reopen chore": "Åpne oppgaven igjen",
   "Mark complete": "Marker som fullført",
+  "Completion closed after the due date": "Fullføring er stengt etter forfallsdatoen",
+  "The completion day has ended. An administrator can update this chore.": "Dagen for fullføring er over. En administrator kan oppdatere denne oppgaven.",
+  "You can complete this chore today for full points.": "Du kan fullføre denne oppgaven i dag og få alle poengene.",
   "Not completed": "Ikke fullført",
   "points": "poeng",
   "Co-op chore · Shared completion": "Samarbeidsoppgave · Felles fullføring",
@@ -246,7 +250,7 @@
   "Please describe your request.": "Beskriv forespørselen din.",
   "You can only request changes to your own chores.": "Du kan bare be om endringer i dine egne oppgaver.",
   "Invalid completion state.": "Ugyldig fullføringsstatus.",
-  "This chore is not assigned to you or has not started yet.": "Denne oppgaven er ikke tildelt deg eller har ikke startet ennå.",
+  "This chore is not assigned to you, has not started, or its completion day has ended.": "Denne oppgaven er ikke tildelt deg, har ikke startet, eller dagen for fullføring er over.",
   "Choose a valid decision.": "Velg en gyldig beslutning.",
   "Request not found.": "Fant ikke forespørselen.",
   "Recurring chores follow their completion windows. A request cannot change a recurring deadline.": "Gjentakende oppgaver følger sine faste perioder. En forespørsel kan ikke endre en gjentakende frist.",
@@ -401,5 +405,13 @@
   "Choose at least one member.": "Velg minst ett medlem.",
   "Invalid deadline option.": "Ugyldig fristvalg.",
   "Cancel": "Avbryt",
-  "Due date": "Frist"
+  "Due date": "Frist",
+  "No saved chores yet. Use the chore builder to add one.": "Ingen lagrede oppgaver ennå. Bruk oppgavebyggeren for å legge til en.",
+  "Expand a chore to review and adjust its member schedules.": "Utvid en oppgave for å se og justere medlemmenes planer.",
+  "{count} schedule": "{count} plan",
+  "{count} schedules": "{count} planer",
+  "{count} active": "{count} aktive",
+  "{count} members selected": "{count} medlemmer valgt",
+  "Select members to adjust the group size. Individual mode creates a separate future schedule for each selected member. Co-op requires at least two members.": "Velg medlemmer for å justere gruppestørrelsen. Individuell tildeling oppretter en egen fremtidig plan for hvert valgt medlem. Samarbeid krever minst to medlemmer.",
+  "Changes apply to future periods. Existing tasks keep their members, type and points. Pausing stops new periods; resuming fills missed periods.": "Endringer gjelder fremtidige perioder. Eksisterende oppgaver beholder medlemmer, type og poeng. Pause stopper nye perioder; gjenopptakelse fyller inn manglende perioder."
 }

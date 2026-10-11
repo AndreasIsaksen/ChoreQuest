@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const { todayKey } = require("./helpers");
+const { todayKey, choreReturnTo } = require("./helpers");
 function problem(message, status = 400) {
   const e = new Error(message);
   e.status = status;
@@ -116,6 +116,7 @@ async function assignChore(c, template, b) {
       problem("Start a new recurring chore today or later.");
   } else if (starts && due && due < starts)
     problem("The due date must be on or after the start date.");
+  const ids = [];
   for (const member of cooperative
     ? [null]
     : members.length
@@ -153,6 +154,7 @@ async function assignChore(c, template, b) {
             template.is_quick || false,
           ],
         );
+    ids.push(row.rows[0].id);
     if (cooperative) {
       for (const person of members) {
         await c.query(
@@ -166,6 +168,7 @@ async function assignChore(c, template, b) {
   }
   if (recurring)
     await c.query("SELECT generate_chore_occurrences($1::date)", [todayKey()]);
+  return { recurring, ids };
 }
 async function transaction(db, fn) {
   const c = await db.connect();
@@ -194,9 +197,9 @@ async function passwordHash(value) {
   return bcrypt.hash(value, 12);
 }
 function installAdmin(app, db, requireAdmin) {
-  const redirect = (req, res, message, section = "administration") => {
+  const redirect = (req, res, message, section = "administration", target = "") => {
     req.session.flash = message;
-    res.redirect("/dashboard?section=" + section);
+    res.redirect("/dashboard?section=" + section + (target ? "#" + target : ""));
   };
   app.post("/admin/chores/:id/status", requireAdmin, async (req, res) => {
     if (!["true", "false"].includes(req.body.completed))
@@ -214,7 +217,8 @@ function installAdmin(app, db, requireAdmin) {
         choreId, req.body.completed === "true", req.session.user.id, todayKey(),
       ]);
     });
-    redirect(req, res, "Chore status and points updated.", "chores");
+    req.session.flash = "Chore status and points updated.";
+    res.redirect(choreReturnTo(req.body.returnTo, choreId));
   });
   app.post("/admin/points", requireAdmin, async (req, res) => {
     const b = req.body;
@@ -292,7 +296,7 @@ function installAdmin(app, db, requireAdmin) {
         [target, week, delta, b.accountType === "permanent"],
       );
     });
-    redirect(req, res, "Points adjusted and recorded in history.");
+    redirect(req, res, "Points adjusted and recorded in history.", "administration&historyMember=" + id(b.userId), "point-history");
   });
   // Removal keeps occurrence rows so cancelled recurring windows are never regenerated.
   for (const [route, table, scope] of [
@@ -344,6 +348,8 @@ function installAdmin(app, db, requireAdmin) {
         req,
         res,
         "Chore removed. Completed and overdue history and points have been preserved.",
+        route === "chores" ? "chores" : "administration",
+        route === "library" ? "chore-library" : route === "series" ? "recurring-schedules" : "household-plan",
       );
     });
   }
@@ -352,16 +358,16 @@ function installAdmin(app, db, requireAdmin) {
     const title = text(b.title, "Title");
     if (b.hasDeadline !== undefined && b.hasDeadline !== "true")
       problem("Invalid deadline option.");
-    await transaction(db, async (c) => {
+    const assignment = await transaction(db, async (c) => {
       await c.query("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE");
       if (!(await participants(c, b)).length) problem("Choose at least one member.");
-      await assignChore(c, { title, description: "", points: points(b.points), id: null, is_quick: true }, {
+      return assignChore(c, { title, description: "", points: points(b.points), id: null, is_quick: true }, {
         ...b, schedule: "once", startsOn: undefined,
         dueDate: b.hasDeadline === "true" ? date(b.dueDate, true) : undefined,
         dueTime: b.hasDeadline === "true" ? b.dueTime : undefined,
       });
     });
-    redirect(req, res, "Quick chore assigned.", "overview");
+    redirect(req, res, "Quick chore assigned.", "overview", "chore-" + assignment.ids[0]);
   });
   app.post("/admin/chores", requireAdmin, async (req, res) => {
     const b = req.body;
@@ -369,7 +375,7 @@ function installAdmin(app, db, requireAdmin) {
     const description =
       typeof b.description === "string" ? b.description.trim() : "";
     if (description.length > 2000) problem("Description is too long.");
-    await transaction(db, async (c) => {
+    const templateId = await transaction(db, async (c) => {
       await c.query("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE");
       const template = (
         await c.query(
@@ -379,15 +385,17 @@ function installAdmin(app, db, requireAdmin) {
       ).rows[0];
       // Retain the previous API for existing clients; the creation form now saves only a definition.
       if (b.schedule) await assignChore(c, template, b);
+      return template.id;
     });
     redirect(
       req,
       res,
       "Chore saved in the library. Use Administer chore to assign and schedule it.",
+      "administration", "library-" + templateId,
     );
   });
   app.post("/admin/library/:id/assign", requireAdmin, async (req, res) => {
-    await transaction(db, async (c) => {
+    const assignment = await transaction(db, async (c) => {
       await c.query("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE");
       const template = (
         await c.query(
@@ -403,13 +411,17 @@ function installAdmin(app, db, requireAdmin) {
           template.id,
         ]);
       }
-      await assignChore(c, template, req.body);
+      return assignChore(c, template, req.body);
     });
+    const occurrence = assignment.recurring ? (await db.query(
+      "SELECT id FROM chores WHERE series_id=$1 ORDER BY window_start DESC LIMIT 1", [assignment.ids[0]],
+    )).rows[0] : null;
     redirect(
       req,
       res,
       "Chore added to the household plan. The definition stays in your library.",
       "chores",
+      assignment.recurring && !occurrence ? "upcoming-series-" + assignment.ids[0] : "chore-" + (occurrence?.id || assignment.ids[0]),
     );
   });
   app.post("/admin/library/:id", requireAdmin, async (req, res) => {
@@ -428,6 +440,7 @@ function installAdmin(app, db, requireAdmin) {
       req,
       res,
       "Library chore updated. Existing tasks and schedules keep their original details.",
+      "administration", "library-" + id(req.params.id),
     );
   });
   app.post("/admin/chores/:id/assign", requireAdmin, async (req, res) => {
@@ -465,7 +478,8 @@ function installAdmin(app, db, requireAdmin) {
             [chore.id, person, savedPoints.get(person) ?? null],
           );
     });
-    redirect(req, res, "Assignment updated for this chore.");
+    req.session.flash = "Assignment updated for this chore.";
+    res.redirect(choreReturnTo(req.body.returnTo, id(req.params.id)));
   });
   app.post("/admin/series/:id", requireAdmin, async (req, res) => {
     await transaction(db, async (c) => {
@@ -477,33 +491,64 @@ function installAdmin(app, db, requireAdmin) {
       ).rows[0];
       if (!schedule || schedule.removed_at) problem("Schedule not found.", 404);
       const members = await participants(c, req.body);
-      if (!schedule.cooperative && members.length > 1)
-        problem("Choose one member for an individual schedule.");
-      const userId = schedule.cooperative ? null : members[0] || null;
+      const mode = req.body.mode || (schedule.cooperative ? "cooperative" : "individual");
+      if (!["individual", "cooperative"].includes(mode)) problem("Choose an assignment type.");
+      const cooperative = mode === "cooperative";
+      if (cooperative && members.length < 2) problem("Select at least two members for a co-op chore.");
       if (!["true", "false"].includes(req.body.active))
         problem("Invalid schedule state.");
-      const r = await c.query(
-        "UPDATE chore_series SET user_id=$1, active=$2 WHERE id=$3 RETURNING id",
-        [userId, req.body.active === "true", id(req.params.id)],
-      );
-      if (!r.rowCount) problem("Schedule not found.", 404);
+      if (req.body.individualPoints !== undefined && req.body.individualPoints !== "true")
+        problem("Invalid individual points option.");
       const savedPoints = new Map((await c.query(
         "SELECT user_id,points FROM series_participants WHERE series_id=$1", [schedule.id],
       )).rows.map(person => [person.user_id, person.points]));
+      if (schedule.user_id) savedPoints.set(schedule.user_id, schedule.points);
+      const individual = req.body.individualPoints === "true";
+      const sharedPoints = req.body.points === undefined ? schedule.points : points(req.body.points);
+      const rewards = new Map();
+      if (individual && !members.length) problem("Choose members when setting individual points.");
+      for (const member of members) {
+        if (individual && req.body[`memberPoints_${member}`] === undefined)
+          problem("Enter points for each selected member.");
+        rewards.set(member, individual ? points(req.body[`memberPoints_${member}`])
+          : req.body.points !== undefined ? sharedPoints : savedPoints.get(member) ?? sharedPoints);
+      }
+      // Materialize elapsed periods with the old definition before editing future periods.
+      await c.query("SELECT generate_chore_occurrences($1::date)", [todayKey()]);
+      const current = (await c.query("SELECT generated_count FROM chore_series WHERE id=$1", [schedule.id])).rows[0];
       await c.query("DELETE FROM series_participants WHERE series_id=$1", [
         schedule.id,
       ]);
-      if (schedule.cooperative)
+      await c.query(
+        "UPDATE chore_series SET user_id=$1,cooperative=$2,points=$3,active=$4 WHERE id=$5",
+        [cooperative ? null : members[0] || null, cooperative,
+          cooperative ? sharedPoints : rewards.get(members[0]) ?? sharedPoints, req.body.active === "true", schedule.id],
+      );
+      if (cooperative) {
         for (const person of members)
           await c.query(
             "INSERT INTO series_participants(series_id,user_id,points) VALUES($1,$2,$3)",
-            [schedule.id, person, savedPoints.get(person) ?? null],
+            [schedule.id, person, individual ? rewards.get(person)
+              : req.body.points === undefined ? savedPoints.get(person) ?? null : null],
           );
+      } else {
+        // Individual mode needs one series per member. Copy the cursor so current
+        // and historical occurrences are never duplicated or reassigned.
+        for (const person of members.slice(1))
+          await c.query(
+            `INSERT INTO chore_series(title,description,user_id,starts_on,interval_count,interval_unit,template_id,cooperative,points,weekdays,due_time,active,generated_count)
+             VALUES($1,$2,$3,$4,$5,$6,$7,false,$8,$9,$10,$11,$12)`,
+            [schedule.title, schedule.description, person, schedule.starts_on, schedule.interval_count,
+              schedule.interval_unit, schedule.template_id, rewards.get(person), schedule.weekdays,
+              schedule.due_time, req.body.active === "true", current.generated_count],
+          );
+      }
     });
     redirect(
       req,
       res,
       "Schedule updated. Existing periods are unchanged; resuming fills missed periods.",
+      "administration", "schedule-" + id(req.params.id),
     );
   });
   app.post("/admin/users", requireAdmin, async (req, res) => {

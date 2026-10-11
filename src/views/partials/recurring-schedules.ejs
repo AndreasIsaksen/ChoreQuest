@@ -1,0 +1,36 @@
+<section class="panel form-panel" id="recurring-schedules">
+<div class="panel-heading"><div><h2><%= t("Recurring schedules") %></h2><p class="muted"><%= t("Expand a chore to review and adjust its member schedules.") %></p></div></div>
+<% if(!series.length) { %><p class="padded muted"><%= t("Administer a saved chore above to create a recurring schedule.") %></p><% } %>
+<div class="schedule-list">
+<% scheduleGroups.forEach(group=>{ %>
+<details class="compact-item schedule-group" id="schedule-group-<%= Math.min(...group.items.map(item=>item.id)) %>">
+<summary class="compact-summary">
+<span class="compact-title"><%= group.title %></span>
+<span class="small muted"><%= t(group.items.length===1?'{count} schedule':'{count} schedules',{count:group.items.length}) %> · <%= t('{count} active',{count:group.items.filter(item=>item.active).length}) %></span>
+<span class="reward-chips"><% group.rewards.forEach(person=>{ %><span class="reward-chip"><%= person.name %>: <%= person.points %> <%= t("points") %></span><% }) %><% if(group.items.some(item=>!item.member_ids.length)) { %><span class="reward-chip"><%= t("Unassigned") %></span><% } %></span>
+</summary>
+<div class="compact-content">
+<% group.items.forEach(item=>{ %>
+<details class="schedule-detail" id="schedule-<%= item.id %>">
+<summary class="compact-summary"><span class="compact-title"><%= item.display_name || t("Unassigned") %></span><span class="badge <%= item.active?'pending':'removed' %>"><%= t(item.active?'Active':'Paused') %></span><span class="small muted"><%= t(item.cooperative?'Co-op — shared task':'Individual — separate tasks') %> · <%- include('schedule-summary',{item}) %></span>
+<span class="reward-chips"><% (item.point_rewards || []).forEach(person=>{ %><span class="reward-chip"><%= person.name %>: <%= person.points %> <%= t("points") %></span><% }) %><% if(!item.member_ids.length) { %><span class="reward-chip"><%= item.points %> <%= t("points per member") %></span><% } %></span></summary>
+<div class="schedule-content">
+<p class="small muted"><%= t("Starts") %> <%= formatDate(item.starts_on) %><%= t(". Each period is generated when it begins. Previous completions stay in the agenda.") %></p>
+<form class="form-grid" method="post" action="/admin/series/<%= item.id %>" data-series-editor>
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label><%= t("Assignment type") %><select name="mode"><option value="individual" <%= !item.cooperative?'selected':'' %>><%= t("Individual — separate tasks") %></option><option value="cooperative" <%= item.cooperative?'selected':'' %>><%= t("Co-op — shared task") %></option></select></label>
+<label><%= t("Schedule state") %><select name="active"><option value="true" <%= item.active?'selected':'' %>><%= t("Active") %></option><option value="false" <%= !item.active?'selected':'' %>><%= t("Paused") %></option></select></label>
+<label class="individual-points-option wide"><input type="checkbox" name="individualPoints" value="true" data-individual-points <%= item.custom_points?'checked':'' %>><span><%= t("Set individual points for each member") %></span></label>
+<div data-shared-points class="wide"><label><%= t("Points per member") %><input type="number" name="points" min="0" max="1000000" step="1" value="<%= item.points %>" required></label></div>
+<%- include('assignment-members',{people:activeUsers,defaultPoints:item.points,selected:item.member_ids,rewards:item.point_rewards || []}) %>
+<p class="form-hint wide" data-member-count aria-live="polite"><%= t('{count} members selected',{count:item.member_ids.length}) %></p>
+<p class="form-hint wide" data-member-guidance><%= t("Select members to adjust the group size. Individual mode creates a separate future schedule for each selected member. Co-op requires at least two members.") %></p>
+<p class="form-hint wide"><%= t("Changes apply to future periods. Existing tasks keep their members, type and points. Pausing stops new periods; resuming fills missed periods.") %></p>
+<button class="button subtle"><%= t("Save schedule") %></button>
+</form>
+<%- include('delete-chore',{label:'Delete schedule',title:item.title,action:'/admin/series/'+item.id+'/delete',explanation:'Stops this recurring schedule and removes its tasks. The library chore remains available.'}) %>
+</div></details>
+<% }) %>
+</div></details>
+<% }) %>
+</div></section>

@@ -40,6 +40,25 @@ function groupChoresByDate(chores) {
     return acc;
   }, {});
 }
+function groupSchedulesByTitle(series) {
+  const groups = new Map();
+  for (const item of series) {
+    if (!groups.has(item.title)) groups.set(item.title, { title: item.title, items: [], rewards: [] });
+    const group = groups.get(item.title);
+    group.items.push(item);
+    for (const reward of item.point_rewards || []) {
+      if (!group.rewards.some(person => person.id === reward.id && person.name === reward.name && person.points === reward.points))
+        group.rewards.push(reward);
+    }
+  }
+  for (const group of groups.values()) group.rewards.sort((a, b) => a.name.localeCompare(b.name) || a.points - b.points);
+  return [...groups.values()].sort((a, b) => a.title.localeCompare(b.title));
+}
+function choreReturnTo(value, choreId) {
+  const base = typeof value === "string" && /^\/dashboard(?:[?#]|$)/.test(value) && !/[\\\r\n]/.test(value)
+    ? value.split("#")[0] : "/dashboard?section=chores";
+  return base + "#chore-" + choreId;
+}
 module.exports = {
   dateKey,
   todayKey,
@@ -47,4 +66,6 @@ module.exports = {
   calendarDays,
   filterChoresByMonth,
   groupChoresByDate,
+  groupSchedulesByTitle,
+  choreReturnTo,
 };

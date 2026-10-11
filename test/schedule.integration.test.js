@@ -89,13 +89,23 @@ test("weekday schedules and timed deadlines", { skip: !process.env.TEST_DATABASE
   assert.equal(offsets.summer.toISOString(),"2026-03-29T12:00:00.000Z");
   assert.equal(offsets.winter.toISOString(),"2026-10-25T13:00:00.000Z");
   assert.equal(offsets.end_day.toISOString(),"2026-10-25T23:00:00.000Z");
-  const timed = (await db.query("INSERT INTO chores(user_id,title,points,due_date,due_time) VALUES(2,'Already due',9,((now()-interval '1 minute') AT TIME ZONE 'Europe/Oslo')::date,((now()-interval '1 minute') AT TIME ZONE 'Europe/Oslo')::time),(2,'Due later',9,((now()+interval '1 hour') AT TIME ZONE 'Europe/Oslo')::date,((now()+interval '1 hour') AT TIME ZONE 'Europe/Oslo')::time) RETURNING id")).rows;
+  const timed = (await db.query("INSERT INTO chores(user_id,title,points,due_date,due_time) VALUES(2,'Already due',9,(now() AT TIME ZONE 'Europe/Oslo')::date,'00:00'),(2,'Due later',9,((now()+interval '1 hour') AT TIME ZONE 'Europe/Oslo')::date,((now()+interval '1 hour') AT TIME ZONE 'Europe/Oslo')::time) RETURNING id")).rows;
   await db.query("SELECT process_points($1)",[todayKey()]);
   await db.query("SELECT process_points($1)",[todayKey()]);
   assert.deepEqual((await db.query("SELECT chore_id,amount FROM point_ledger WHERE chore_id=ANY($1::int[])",[timed.map(task=>task.id)])).rows,[{chore_id:timed[0].id,amount:-9}]);
   const overdueHtml = await (await fetch(base + "/dashboard?status=overdue", {headers:{Cookie:member.cookie}})).text();
   assert.match(overdueHtml,/Already due/);
   assert.doesNotMatch(overdueHtml,/Due later/);
-  await db.query("UPDATE chores SET completed=true,completed_at=now() WHERE id=$1",[timed[0].id]);
+  const lateCard = overdueHtml.match(new RegExp(`<article[^>]*id="chore-${timed[0].id}"[\\s\\S]*?<\\/article>`))[0];
+  assert.match(lateCard, /aria-label="Complete Already due"/);
+  assert.doesNotMatch(lateCard, /<button[^>]*disabled/);
+  const lateCompletion = await fetch(base + `/chores/${timed[0].id}/toggle`, {
+    method: "POST", redirect: "manual",
+    headers: { Cookie: member.cookie, "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ _csrf: member.token, completed: "true" }),
+  });
+  assert.equal(lateCompletion.status, 302);
+  assert.equal((await db.query("SELECT completed FROM chores WHERE id=$1", [timed[0].id])).rows[0].completed, true);
+  assert.equal((await db.query("SELECT sum(amount)::int AS reward FROM point_ledger WHERE chore_id=$1", [timed[0].id])).rows[0].reward, 9);
   assert.match(await (await fetch(base + "/dashboard", {headers:{Cookie:member.cookie}})).text(),/Done late/);
 });
