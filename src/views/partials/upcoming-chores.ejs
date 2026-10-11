@@ -1,0 +1,17 @@
+<% if(upcomingSchedules.length) { const linkedSchedules = new Set(); %>
+<section class="padded upcoming-chores" id="upcoming-chores">
+<h3><%= t("Upcoming recurring chores") %></h3>
+<p class="muted small"><%= t("Scheduled chores appear here before they start. Completion becomes available on the start date.") %></p>
+<% upcomingSchedules.forEach(item=>{ %>
+<article class="request-card" tabindex="-1" id="<%= item.preview_id %>">
+<% if(!linkedSchedules.has(item.id)) { linkedSchedules.add(item.id); %><span id="upcoming-series-<%= item.id %>" tabindex="-1"></span><% } %>
+<span class="badge pending"><%= t("Upcoming") %></span>
+<h3><%= item.title %></h3>
+<% if(item.description) { %><p><%= item.description %></p><% } %>
+<p><%= t(item.weekdays ? "Next occurrence" : "Starts") %> <%= formatDate(item.window_start) %> – <%= formatDate(item.due_date) %> · <%- include('schedule-summary',{item}) %></p>
+<% if(item.cooperative) { %><p class="coop-label"><%= t("Co-op chore · Shared completion") %></p><% } %>
+<% if(item.custom_points) { %><%- include('member-rewards',{item}) %><% } else { %><p><%= item.points %> <%= t("points per member") %><% if(isAdmin || item.cooperative) { %> · <%= item.display_name || t("Unassigned") %><% } %></p><% } %>
+<% if(isAdmin) { %><a class="text-link" href="/dashboard?section=administration#schedule-<%= item.id %>"><%= t("Recurring schedules") %></a><% } %>
+</article><% }) %>
+</section>
+<% } %>

@@ -75,7 +75,7 @@ test("populated member/admin views translate copy without changing user data or 
           choreType: "all", view: "calendar", member: "", status: "all", days: calendarDays("2026-09"),
           stats: { total: 2, completed: 1, overdue: 1, pending: 1 }, flash: "Your change has been saved.",
           library: [{ id: 1, title: userContent, description: "", points: 10 }],
-          upcomingSchedules: [{ id: 3, title: userContent, description: userContent, cooperative: true, display_name: "English", points: 10, starts_on: "2026-10-05", interval_count: 1, interval_unit: "weeks" }],
+          upcomingSchedules: [{ id: 3, preview_id: "upcoming-series-3-2026-09-30", window_start: "2026-09-30", due_date: "2026-10-06", calendar_date: "2026-10-06", title: userContent, description: userContent, cooperative: true, display_name: "English", points: 10, starts_on: "2026-09-30", interval_count: 1, interval_unit: "weeks" }],
           series: sampleSeries, scheduleGroups: groupSchedulesByTitle(sampleSeries),
           requestLabels: { different_chore: "Change a chore", due_date_change: "Change a due date", other: "Something else" },
           requests: ["pending", "approved", "rejected"].map((status, i) => ({ id: i + 1, status, request_type: "other", display_name: "English", chore_title: userContent, details: userContent, proposed_due_date: "2026-09-30", admin_note: "My response" })),

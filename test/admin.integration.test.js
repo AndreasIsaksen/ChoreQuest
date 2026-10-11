@@ -291,7 +291,7 @@ test(
     assert.equal((await db.query("SELECT * FROM chores WHERE template_id=$1", [futureTemplate.id])).rowCount, 0);
     for (const auth of [admin, member]) {
       for (const view of ["list", "calendar"]) {
-        const html = await (await fetch(base + `/dashboard?section=chores&view=${view}`, {
+        const html = await (await fetch(base + `/dashboard?section=chores&view=${view}&month=${startsOn.slice(0, 7)}`, {
           headers: { Cookie: auth.cookie },
         })).text();
         assert.match(html, /Upcoming recurring chores/);

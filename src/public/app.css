@@ -1272,6 +1272,9 @@ textarea::placeholder {
   color: var(--color-668453);
   text-decoration: line-through;
 }
+.calendar-chore.upcoming { border: 1px dashed currentColor; }
+.upcoming-chores { border-top: 1px solid var(--line); }
+.upcoming-chores .request-card:target { outline: 2px solid var(--color-9bb383); outline-offset: 2px; }
 .agenda-label {
   padding: 10px 22px;
   font-size: 12px;
