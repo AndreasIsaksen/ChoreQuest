@@ -32,7 +32,9 @@ test("admins and members see future tasks in their plan and month calendar witho
   const unassigned = await schedule("Unassigned upcoming daily", null, starts);
   await schedule("Paused future task", 2, starts, "days", { active: false });
   await schedule("Deleted future task", 3, starts, "days", { removed_at: new Date() });
-  const current = await schedule("Current and next weekly", 2, today, "weeks");
+  const current = await schedule("Støvsuging", 2, today, "weeks");
+  const currentSam = await schedule("Støvsuging", 3, today, "weeks");
+  const crossMonthTask = (await db.query("INSERT INTO chores(title,user_id,window_start,due_date,points) VALUES('Cross-month assigned task',2,$1,$2::date+5,4) RETURNING id,to_char(due_date,'YYYY-MM-DD') AS due", [anchor, starts])).rows[0];
   await db.query("INSERT INTO chores(title,user_id,due_date,points) VALUES('Future one-off task',2,$1::date+5,4)", [today]);
   const server = createApp({ db, env: { SESSION_SECRET: "upcoming-tests", SESSION_COOKIE_SECURE: "false" } }).listen(0);
   await new Promise(resolve => server.once("listening", resolve));
@@ -55,15 +57,38 @@ test("admins and members see future tasks in their plan and month calendar witho
   }
   // First load generates only the current window, as before.
   await page(admin);
+  const currentTasks = (await db.query("SELECT id,user_id,to_char(due_date,'YYYY-MM-DD') AS due FROM chores WHERE series_id=ANY($1::int[])", [[current, currentSam]])).rows;
+  assert.equal(currentTasks.length, 2);
+  const cells = html => [...html.matchAll(/<div class="calendar-day[^\"]*">([\s\S]*?)<\/div>/g)].map(cell => ({
+    date: cell[1].match(/datetime="([^\"]+)"/)[1],
+    links: [...cell[1].matchAll(/href="#([^\"]+)"/g)].map(m => m[1]),
+  }));
+  // Each member's actual weekly task appears exactly once, on its deadline.
+  for (const [cookie, userId] of [[admin, null], [alex, 2], [sam, 3]]) {
+    for (const section of ["overview", "chores"]) {
+      const html = await page(cookie, `section=${section}&view=calendar&month=${currentTasks[0].due.slice(0,7)}`);
+      for (const task of currentTasks) {
+        const dates = cells(html).filter(cell => cell.links.includes(`chore-${task.id}`)).map(cell => cell.date);
+        assert.deepEqual(dates, userId === null || task.user_id === userId ? [task.due] : []);
+      }
+    }
+  }
+  const priorMonth = anchor.slice(0,7);
+  const beforeDeadlineMonth = await page(admin, `section=chores&view=calendar&month=${priorMonth}`);
+  assert.doesNotMatch(beforeDeadlineMonth, /Cross-month assigned task/);
+  // Lists still show tasks spanning months with their complete date range.
+  assert.match(await page(admin, "section=chores&view=list"), /Cross-month assigned task/);
+  const deadlineMonth = await page(admin, `section=chores&view=calendar&month=${month}`);
+  assert.deepEqual(cells(deadlineMonth).filter(cell => cell.links.includes(`chore-${crossMonthTask.id}`)).map(cell => cell.date), [crossMonthTask.due]);
   const before = (await db.query("SELECT id,generated_count FROM chore_series ORDER BY id")).rows;
   const taskCount = (await db.query("SELECT count(*) FROM chores")).rows[0].count;
   const ledgerCount = (await db.query("SELECT count(*) FROM point_ledger")).rows[0].count;
   const ids = html => [...html.matchAll(/id="upcoming-series-(\d+)-(\d{4}-\d{2}-\d{2})"/g)].map(m => `${m[1]}:${m[2]}`).sort();
   let adminCalendar;
   for (const [cookie, visible, hidden] of [
-    [admin, [daily, weekdays, coop, monthly, unassigned, current], []],
-    [alex, [daily, coop, monthly, current], [weekdays, unassigned]],
-    [sam, [weekdays, coop], [daily, monthly, unassigned, current]],
+    [admin, [daily, weekdays, coop, monthly, unassigned, current, currentSam], []],
+    [alex, [daily, coop, monthly, current], [weekdays, unassigned, currentSam]],
+    [sam, [weekdays, coop, currentSam], [daily, monthly, unassigned, current]],
   ]) for (const section of ["overview", "chores"]) for (const view of ["list", "calendar"]) {
     const html = await page(cookie, `section=${section}&view=${view}&month=${month}`);
     for (const id of visible) assert.match(html, new RegExp(`id="upcoming-series-${id}"`));
@@ -106,12 +131,12 @@ test("admins and members see future tasks in their plan and month calendar witho
     await client.query("BEGIN");
     await client.query("SELECT generate_chore_occurrences(($1::date + interval '1 month' - interval '1 day')::date)", [starts]);
     const actual = (await client.query(`SELECT series_id,to_char(window_start,'YYYY-MM-DD') AS start,to_char(due_date,'YYYY-MM-DD') AS due FROM chores
-      WHERE window_start>$1 AND window_start<($2::date+interval '1 month') AND due_date>=$2`, [today, starts])).rows;
+      WHERE series_id IS NOT NULL AND window_start>$1 AND due_date>=$2 AND due_date<($2::date+interval '1 month')`, [today, starts])).rows;
     assert.deepEqual(ids(adminCalendar), actual.map(c => `${c.series_id}:${c.start}`).sort());
     for (const cell of adminCalendar.matchAll(/<div class="calendar-day[^\"]*">([\s\S]*?)<\/div>/g)) {
       const date = cell[1].match(/datetime="([^\"]+)"/)[1];
       const links = [...cell[1].matchAll(/href="#upcoming-series-(\d+)-(\d{4}-\d{2}-\d{2})"/g)].map(m => `${m[1]}:${m[2]}`).sort();
-      const expected = date.startsWith(month) ? actual.filter(c => c.start <= date && c.due >= date).map(c => `${c.series_id}:${c.start}`).sort() : [];
+      const expected = date.startsWith(month) ? actual.filter(c => c.due === date).map(c => `${c.series_id}:${c.start}`).sort() : [];
       assert.deepEqual(links, expected, `calendar previews on ${date}`);
     }
   } finally { await client.query("ROLLBACK"); client.release(); }

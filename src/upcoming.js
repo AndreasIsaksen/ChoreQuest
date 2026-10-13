@@ -34,7 +34,7 @@ function upcomingOccurrences(series, today, month = null) {
       if (last && start > last) break;
       const end = addDays(boundary(n + 1), -1);
       n++;
-      if (start <= today || end < first || (item.weekdays && !item.weekdays.includes(day(start).getUTCDay() || 7))) continue;
+      if (start <= today || end < first || (last && end > last) || (item.weekdays && !item.weekdays.includes(day(start).getUTCDay() || 7))) continue;
       result.push({ ...item, series_id: item.id, window_start: start, due_date: end, calendar_date: end,
         preview_id: `upcoming-series-${item.id}-${start}` });
       // Lists show the next task from every schedule, even for a distant start.
