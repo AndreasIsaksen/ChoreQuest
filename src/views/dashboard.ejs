@@ -200,7 +200,7 @@
 <%= t(day) %>
 </div>
 <% }) %>
-<% days.forEach(day=>{ const dayChores=[...chores,...upcomingSchedules].filter(c=>day.inMonth && (c.window_start ? day.key>=c.window_start && day.key<=c.calendar_date : c.calendar_date===day.key)); %>
+<% days.forEach(day=>{ const dayChores=[...chores,...upcomingSchedules].filter(c=>day.inMonth && c.calendar_date===day.key); %>
 <div class="calendar-day <%= !day.inMonth?'outside':'' %> <%= day.key===today?'today':'' %>">
 <time datetime="<%= day.key %>">
 <%= day.number %>

@@ -342,19 +342,12 @@ function createApp({ db = pool, env = process.env } = {}) {
       ).length,
       pending: requestsResult.rows.filter((r) => r.status === "pending").length,
     };
-    const monthEnd = calendarDays(selectedMonth)
-      .filter((d) => d.inMonth)
-      .at(-1).key;
     const chores = scoped.filter(
       (c) =>
         (choreType === "all" || (choreType === "quick" ? c.is_quick : !c.is_quick)) &&
         (view !== "calendar" ||
           !c.calendar_date ||
-          (c.calendar_date &&
-            (c.window_start
-              ? c.window_start <= monthEnd &&
-                c.calendar_date >= selectedMonth + "-01"
-              : c.calendar_date.startsWith(selectedMonth)))) &&
+          c.calendar_date.startsWith(selectedMonth)) &&
         (status === "all" ||
           (status === "removed"
             ? !!c.removed_at
