@@ -3,6 +3,8 @@ function revealTarget() {
   if (!id) return;
   const target = document.getElementById(id) || (id.startsWith("chore-") ? document.getElementById("household-plan") : null);
   if (!target) return;
+  const disclosure = target.querySelector?.(":scope > .chore-disclosure");
+  if (disclosure) disclosure.open = true;
   for (let element = target; element; element = element.parentElement) {
     if (element instanceof HTMLDetailsElement) element.open = true;
   }

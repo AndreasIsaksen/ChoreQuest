@@ -59,6 +59,12 @@ function choreReturnTo(value, choreId) {
     ? value.split("#")[0] : "/dashboard?section=chores";
   return base + "#chore-" + choreId;
 }
+function choreHistoryStart(time, today) {
+  if (time === "forever") return null;
+  const start = new Date(today + "T12:00:00Z");
+  start.setUTCDate(start.getUTCDate() - (["1", "5", "10"].includes(time) ? Number(time) : 0));
+  return start.toISOString().slice(0, 10);
+}
 module.exports = {
   dateKey,
   todayKey,
@@ -68,4 +74,5 @@ module.exports = {
   groupChoresByDate,
   groupSchedulesByTitle,
   choreReturnTo,
+  choreHistoryStart,
 };

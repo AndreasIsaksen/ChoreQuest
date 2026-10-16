@@ -44,3 +44,19 @@ test("nested schedule links reveal ancestors, scroll and move keyboard focus", (
   listeners.pageshow();
   assert.equal(target.scrolled, "start");
 });
+
+test("a chore deep link expands its details before scrolling and focusing the row", () => {
+  const details = { open: false };
+  const target = {
+    querySelector: () => details,
+    scrollIntoView() { assert.equal(details.open, true); },
+    focus() { this.focused = true; },
+  };
+  vm.runInNewContext(fs.readFileSync("src/public/app.js", "utf8"), {
+    location: { hash: "#chore-7" }, HTMLDetailsElement: class {},
+    window: { addEventListener() {} },
+    document: { getElementById: id => id === "chore-7" ? target : null, querySelectorAll: () => [] },
+  });
+  assert.equal(details.open, true);
+  assert.equal(target.focused, true);
+});

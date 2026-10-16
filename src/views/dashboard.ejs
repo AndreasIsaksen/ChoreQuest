@@ -154,10 +154,10 @@
 </h2>
 </div>
 <div class="view-switch" aria-label="<%= t("Chore view") %>">
-<a aria-label="<%= t("List view") %>" class="<%= view==='list'?'selected':'' %>" href="/dashboard?section=chores&view=list&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>#household-plan">
+<a aria-label="<%= t("List view") %>" class="<%= view==='list'?'selected':'' %>" href="/dashboard?section=chores&view=list&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>&time=<%= typeof time === "undefined" ? "today" : time %>#household-plan">
 <%- include('partials/icon',{name:'list'}) %>
 </a>
-<a aria-label="<%= t("Calendar view") %>" class="<%= view==='calendar'?'selected':'' %>" href="/dashboard?section=chores&view=calendar&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>#household-plan">
+<a aria-label="<%= t("Calendar view") %>" class="<%= view==='calendar'?'selected':'' %>" href="/dashboard?section=chores&view=calendar&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>&time=<%= typeof time === "undefined" ? "today" : time %>#household-plan">
 <%- include('partials/icon',{name:'calendar'}) %>
 </a>
 </div>
@@ -224,10 +224,17 @@
 <% } %>
 </span>
 <% } %>
-<div class="chore-copy">
+<details class="chore-disclosure">
+<summary class="chore-summary">
 <h3 class="<%= c.completed?'completed-title':'' %>">
 <%= c.title %>
-</h3><% if(c.is_quick) { %><span class="badge pending"><%= t("Quick Chore") %></span><% } %><% if(isAdmin && c.custom_points) { %><%- include('partials/member-rewards',{item:c}) %><% } else { %><span class="badge pending"><%= c.points %> <%= t("points") %></span><% } %>
+</h3>
+<span class="badge <%= c.removed_at?'removed':c.completed?'completed':late?'overdue':'pending' %>">
+<%= t(c.removed_at?'Removed':c.completed?(c.completed_late?'Done late':'Done'):late?'Overdue':c.due_date===today?'Due today':'To do') %>
+</span>
+</summary>
+<div class="chore-copy">
+<% if(c.is_quick) { %><span class="badge pending"><%= t("Quick Chore") %></span><% } %><% if(isAdmin && c.custom_points) { %><%- include('partials/member-rewards',{item:c}) %><% } else { %><span class="badge pending"><%= c.points %> <%= t("points") %></span><% } %>
 <% if(c.description) { %>
 <p>
 <%= c.description %>
@@ -265,9 +272,7 @@
 <button class="button subtle"><%= t("Save assignment") %></button><p class="form-hint"><%= t("Changes this task only. Co-op completion is shared by all participants.") %></p></form></details><% } %>
 <% if(isAdmin && !c.removed_at) { %><%- include('partials/delete-chore',{label:'Delete task',title:c.title,action:'/admin/chores/'+c.id+'/delete',explanation:'Deletes this task only. The library chore and future recurring periods remain available.'}) %><% } %>
 </div>
-<span class="badge <%= c.removed_at?'removed':c.completed?'completed':late?'overdue':'pending' %>">
-<%= t(c.removed_at?'Removed':c.completed?(c.completed_late?'Done late':'Done'):late?'Overdue':c.due_date===today?'Due today':'To do') %>
-</span>
+</details>
 </article>
 <% }) %>
 </div>

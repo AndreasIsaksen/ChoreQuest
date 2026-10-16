@@ -236,7 +236,7 @@ test(
       403,
     );
     let html = await (
-      await fetch(base + "/dashboard?section=chores", {
+      await fetch(base + "/dashboard?section=chores&time=forever", {
         headers: { Cookie: alex.cookie },
       })
     ).text();
@@ -248,7 +248,7 @@ test(
     html = await (
       await fetch(
         base +
-          "/dashboard?section=chores&view=calendar&month=" +
+          "/dashboard?section=chores&time=forever&view=calendar&month=" +
           today.slice(0, 7),
         { headers: { Cookie: alex.cookie } },
       )
