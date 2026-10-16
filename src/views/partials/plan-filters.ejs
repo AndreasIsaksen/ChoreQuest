@@ -1,0 +1,42 @@
+<%
+const currentFilters = {
+  section: 'chores', view, month: selectedMonth, member, status,
+  choreType: typeof choreType === 'undefined' ? 'all' : choreType,
+};
+const categories = [
+  { name: 'choreType', label: 'Chore type', options: [['all', t('All chore types')], ['quick', t('Quick chores only')], ['standard', t('Exclude quick chores')]] },
+  { name: 'status', label: 'Status', options: [['all', t('All chores')], ['open', t('To do')], ['completed', t('Completed')], ['overdue', t('Overdue')], ['removed', t('Removed')]] },
+];
+if (isAdmin) categories.push({ name: 'member', label: 'Member', options: [
+  ['', t('Everyone')], ['unassigned', t('Unassigned')],
+  ...users.map(person => [String(person.id), person.display_name]),
+] });
+%>
+<div class="filters">
+<% for (const category of categories) { %>
+<div class="filter-category">
+<span class="filter-label" id="filter-<%= category.name %>"><%= t(category.label) %></span>
+<nav class="filter-options" aria-labelledby="filter-<%= category.name %>" data-filter-options>
+<% for (const [value, label] of category.options) {
+  const selected = currentFilters[category.name] === value;
+  const params = new URLSearchParams({ ...currentFilters, [category.name]: value });
+%>
+<a class="filter-bubble" href="/dashboard?<%= params.toString() %>#household-plan" <%- selected ? 'aria-current="true"' : '' %>>
+<% if (selected) { %><%- include('icon', { name: 'check' }) %><% } %>
+<%= label %>
+</a>
+<% } %>
+</nav>
+</div>
+<% } %>
+<% if (view === 'calendar') { %>
+<form class="filter-month" method="get" action="/dashboard#household-plan" data-filter-month>
+<% for (const [name, value] of Object.entries(currentFilters)) { if (name !== 'month') { %>
+<input type="hidden" name="<%= name %>" value="<%= value %>">
+<% } } %>
+<label for="filter-month" class="filter-label"><%= t('Month') %></label>
+<input id="filter-month" type="month" name="month" value="<%= selectedMonth %>" required>
+<button class="button subtle" type="submit" data-filter-apply><%= t('Apply filters') %></button>
+</form>
+<% } %>
+</div>

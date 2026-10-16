@@ -807,28 +807,69 @@ textarea:focus {
 .filters {
   padding: 0 22px 20px;
   border-bottom: 1px solid var(--color-f0f1eb);
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.filter-category {
+  min-width: 0;
+}
+.filters .filter-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-53614c);
+}
+.filter-options {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: flex-end;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px;
+  margin: -8px;
 }
-.filters label {
-  flex: 1;
-  min-width: 110px;
-  font-size: 10px;
-  gap: 5px;
+.filter-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
-.filters input,
-.filters select {
-  min-height: 39px;
+.filter-bubble:hover {
+  background: var(--sage);
+  border-color: var(--green);
+}
+.filter-bubble[aria-current="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.filter-bubble svg {
+  width: 16px;
+  height: 16px;
+}
+.filter-month input {
+  width: auto;
+  max-width: 100%;
+  min-height: 44px;
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: 14px;
   background: var(--color-fafbf7);
 }
 .filters .button {
-  min-height: 39px;
+  min-height: 44px;
   padding: 8px 12px;
-  font-size: 11px;
+  font-size: 14px;
 }
 label {
   display: flex;
@@ -2156,7 +2197,6 @@ textarea::placeholder {
   background: var(--white);
 }
 .view-switch a { width: 44px; height: 44px; }
-.filters input, .filters select, .filters .button { min-height: 44px; }
 .language-switch span { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
 .text-link {
   min-height: 44px;
@@ -2232,9 +2272,10 @@ textarea::placeholder {
   .chore-shortcuts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .button { font-size: 14px; min-height: 48px; overflow-wrap: anywhere; }
   input, select, textarea,
-  .filters input, .filters select { min-height: 48px; font-size: 16px; min-width: 0; }
+  .filters input { min-height: 48px; font-size: 16px; min-width: 0; }
   .filters { display: grid; grid-template-columns: minmax(0, 1fr); padding: 0 16px 20px; }
   .filters .button { min-height: 48px; font-size: 14px; }
+  .filter-bubble { min-height: 48px; font-size: 14px; }
   .panel-heading { padding: 20px 16px; flex-wrap: wrap; }
   .panel-heading h2 { font-size: 19px; }
   .padded { padding-left: 16px; padding-right: 16px; }

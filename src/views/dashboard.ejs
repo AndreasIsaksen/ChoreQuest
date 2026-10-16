@@ -154,7 +154,7 @@
 </h2>
 </div>
 <div class="view-switch" aria-label="<%= t("Chore view") %>">
-<a aria-label="<%= t("List view") %>" class="<%= view==='list'?'selected':'' %>" href="/dashboard?section=chores&view=list&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>#household-plan">
+<a aria-label="<%= t("List view") %>" class="<%= view==='list'?'selected':'' %>" href="/dashboard?section=chores&view=list&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>#household-plan">
 <%- include('partials/icon',{name:'list'}) %>
 </a>
 <a aria-label="<%= t("Calendar view") %>" class="<%= view==='calendar'?'selected':'' %>" href="/dashboard?section=chores&view=calendar&month=<%= selectedMonth %>&member=<%= member %>&status=<%= status %>&choreType=<%= typeof choreType === "undefined" ? "all" : choreType %>#household-plan">
@@ -162,37 +162,7 @@
 </a>
 </div>
 </div>
-<form class="filters" method="get" action="/dashboard#household-plan">
-<input type="hidden" name="section" value="chores">
-<input type="hidden" name="view" value="<%= view %>">
-<label><%= t("Chore type") %><select name="choreType">
-<% for(const [value,label] of [['all','All chore types'],['quick','Quick chores only'],['standard','Exclude quick chores']]) { %><option value="<%= value %>" <%= (typeof choreType === 'undefined' ? 'all' : choreType)===value?'selected':'' %>><%= t(label) %></option><% } %>
-</select></label>
-<label><%= t("Status") %><select name="status">
-<% for (const [value,label] of [['all','All chores'],['open','To do'],['completed','Completed'],['overdue','Overdue'],['removed','Removed']]) { %>
-<option value="<%= value %>" <%= status===value?'selected':'' %>>
-<%= t(label) %>
-</option>
-<% } %>
-</select>
-</label>
-<% if(isAdmin) { %>
-<label><%= t("Member") %><select name="member">
-<option value=""><%= t("Everyone") %></option><option value="unassigned" <%= member==='unassigned'?'selected':'' %>><%= t("Unassigned") %></option>
-<% users.forEach(person=>{ %>
-<option value="<%= person.id %>" <%= member===String(person.id)?'selected':'' %>>
-<%= person.display_name %>
-</option>
-<% }) %>
-</select>
-</label>
-<% } %>
-<% if(view==='calendar') { %>
-<label><%= t("Month") %><input type="month" name="month" value="<%= selectedMonth %>" required>
-</label>
-<% } %>
-<button class="button subtle" type="submit"><%= t("Apply filters") %></button>
-</form>
+<%- include('partials/plan-filters') %>
 <% if(view==='calendar') { %>
 <div class="calendar" aria-label="<%= t('Chores for {month}', {month:selectedMonth}) %>">
 <% ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(day=>{ %>
