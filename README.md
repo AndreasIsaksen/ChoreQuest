@@ -124,6 +124,8 @@ In **Administer chore**, check **Set individual points for each member** to repl
 
 Actions return to the affected chore, schedule, or history list. Filters and view switches return to the household plan; task status and assignment edits preserve the current view and filters. If a changed task no longer matches the filters, focus returns to the filtered plan.
 
+The household plan shows a separate row of bubble buttons for each filter: chore type, status, and (for administrators) member. Click a bubble to apply that choice immediately while keeping the other filters and selected month. Long rows scroll horizontally on small screens. In calendar view, changing the month also applies immediately; with JavaScript disabled, use **Apply filters** to change the month.
+
 ## Configuration and remote access
 
 | Setting | Purpose |

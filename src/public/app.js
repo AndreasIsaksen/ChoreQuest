@@ -13,6 +13,18 @@ function revealTarget() {
 window.addEventListener("hashchange", revealTarget);
 window.addEventListener("load", revealTarget);
 window.addEventListener("pageshow", () => window.requestAnimationFrame(revealTarget));
+
+for (const row of document.querySelectorAll("[data-filter-options]")) {
+  const selected = row.querySelector('[aria-current="true"]');
+  if (selected) row.scrollLeft = selected.offsetLeft - (row.clientWidth - selected.offsetWidth) / 2;
+}
+for (const form of document.querySelectorAll("[data-filter-month]")) {
+  form.querySelector("[data-filter-apply]").hidden = true;
+  form.addEventListener("change", () => {
+    if (form.reportValidity()) form.requestSubmit();
+  });
+}
+
 for (const toggle of document.querySelectorAll("[data-individual-points]")) {
   const form = toggle.closest("form");
   function syncPoints() {
