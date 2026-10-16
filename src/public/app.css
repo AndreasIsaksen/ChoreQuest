@@ -899,10 +899,11 @@ textarea::placeholder {
   color: var(--color-9ba193);
 }
 .chore-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
   align-items: flex-start;
-  gap: 13px;
-  padding: 22px;
+  gap: 12px;
+  padding: 12px 22px;
   border-bottom: 1px solid var(--color-eff1e9);
   scroll-margin-top: 20px;
 }
@@ -911,6 +912,53 @@ textarea::placeholder {
 }
 .chore-row:target {
   background: var(--color-f0f5e8);
+}
+.chore-disclosure {
+  min-width: 0;
+}
+.chore-summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  list-style: none;
+  border-radius: 6px;
+}
+.chore-summary::-webkit-details-marker {
+  display: none;
+}
+.chore-summary h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.chore-disclosure:not([open]) > .chore-summary h3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.chore-summary .badge {
+  flex-shrink: 0;
+}
+.chore-disclosure[open] > .chore-summary {
+  margin-bottom: 8px;
+}
+.chore-row > .complete-button.static {
+  width: 44px;
+  height: 44px;
+  margin: 0;
+}
+.chore-anchor {
+  position: absolute;
+}
+.upcoming-chores .upcoming-chore {
+  padding-left: 0;
+  padding-right: 0;
 }
 .complete-button {
   width: 25px;
@@ -1883,7 +1931,7 @@ textarea::placeholder {
     padding: 24px 20px;
   }
   .chore-row {
-    padding: 18px 14px;
+    padding: 12px 14px;
     gap: 9px;
   }
   .badge {
@@ -2281,10 +2329,9 @@ textarea::placeholder {
   .padded { padding-left: 16px; padding-right: 16px; }
   .form-grid { padding: 0 16px 20px; }
   .form-footer { align-items: stretch; flex-direction: column; }
-  .chore-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); padding: 18px 16px; gap: 10px; }
-  .chore-row > .badge { grid-column: 2; grid-row: 1; justify-self: end; }
-  .chore-row > .chore-copy { grid-column: 2; grid-row: 2; }
-  .chore-row > form, .chore-row > .static { grid-column: 1; grid-row: 1 / span 2; }
+  .chore-row { padding: 12px 16px; gap: 10px; }
+  .chore-summary { gap: 8px; }
+  .chore-summary h3 { font-size: 15px; }
   .chore-copy h3 { font-size: 15px; }
   .badge { font-size: 11px; white-space: normal; }
   .member-card { padding: 20px 16px; }

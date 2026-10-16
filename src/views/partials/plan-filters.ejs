@@ -2,6 +2,7 @@
 const currentFilters = {
   section: 'chores', view, month: selectedMonth, member, status,
   choreType: typeof choreType === 'undefined' ? 'all' : choreType,
+  time: typeof time === 'undefined' ? 'today' : time,
 };
 const categories = [
   { name: 'choreType', label: 'Chore type', options: [['all', t('All chore types')], ['quick', t('Quick chores only')], ['standard', t('Exclude quick chores')]] },
@@ -10,6 +11,9 @@ const categories = [
 if (isAdmin) categories.push({ name: 'member', label: 'Member', options: [
   ['', t('Everyone')], ['unassigned', t('Unassigned')],
   ...users.map(person => [String(person.id), person.display_name]),
+] });
+categories.push({ name: 'time', label: 'Time', options: [
+  ['today', t('Today')], ['1', '+1'], ['5', '+5'], ['10', '+10'], ['forever', t('Forever')],
 ] });
 %>
 <div class="filters">

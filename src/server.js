@@ -8,7 +8,7 @@ const bcrypt = require("bcrypt");
 const pool = require("./db");
 const { migrate } = require("./migrate");
 const { installAdmin, date, transaction, problem } = require("./admin");
-const { dateKey, formatDate, calendarDays, todayKey, groupSchedulesByTitle, choreReturnTo } = require("./helpers");
+const { dateKey, formatDate, calendarDays, todayKey, groupSchedulesByTitle, choreReturnTo, choreHistoryStart } = require("./helpers");
 const { upcomingOccurrences } = require("./upcoming");
 
 const { translator, languageFromCookie, languageReturnTo } = require("./i18n");
@@ -230,6 +230,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       ? req.query.status
       : "all";
     const choreType = ["quick", "standard"].includes(req.query.choreType) ? req.query.choreType : "all";
+    const time = ["1", "5", "10", "forever"].includes(req.query.time) ? req.query.time : "today";
     const view = req.query.view === "calendar" ? "calendar" : "list";
     await transaction(db, async (c) => {
       await c.query("SELECT generate_chore_occurrences($1::date)", [
@@ -333,6 +334,7 @@ function createApp({ db = pool, env = process.env } = {}) {
           : c.member_ids.includes(Number(member))),
     );
     const today = todayKey();
+    const historyStart = choreHistoryStart(time, today);
     const stats = {
       total: scoped.filter((c) => !c.removed_at).length,
       completed: scoped.filter((c) => !c.removed_at && c.completed).length,
@@ -344,6 +346,7 @@ function createApp({ db = pool, env = process.env } = {}) {
     };
     const chores = scoped.filter(
       (c) =>
+        (!historyStart || !c.calendar_date || c.calendar_date >= historyStart) &&
         (choreType === "all" || (choreType === "quick" ? c.is_quick : !c.is_quick)) &&
         (view !== "calendar" ||
           !c.calendar_date ||
@@ -370,6 +373,7 @@ function createApp({ db = pool, env = process.env } = {}) {
       status,
       view,
       choreType,
+      time,
       users,
       activeUsers,
       requestMembers: (

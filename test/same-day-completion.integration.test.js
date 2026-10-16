@@ -105,7 +105,7 @@ test("member completion closes after the due date and same-day completion earns 
   await t.test("expired tasks reject both explicit and implicit completion while admins can correct them", async () => {
     for (const time of [null, "14:00"]) {
       const id = await chore("Expired completion", day(-1), time);
-      const html = await (await fetch(base + "/dashboard", { headers: { Cookie: alex.cookie } })).text();
+      const html = await (await fetch(base + "/dashboard?time=forever", { headers: { Cookie: alex.cookie } })).text();
       assert.match(card(html, id), /<button disabled/);
       assert.match(card(html, id), /The completion day has ended/);
       const before = await ledger(id);

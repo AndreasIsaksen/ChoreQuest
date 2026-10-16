@@ -11,14 +11,14 @@ const source = fs.readFileSync(filename, 'utf8');
 
 test('filter links change one category, preserve the plan context and work without JavaScript', () => {
   for (const language of ['en', 'nb']) for (const isAdmin of [true, false]) for (const view of ['list', 'calendar']) {
-    const current = { section: 'chores', view, month: '2027-02', member: isAdmin ? '3' : '', status: 'open', choreType: 'standard' };
+    const current = { section: 'chores', view, month: '2027-02', member: isAdmin ? '3' : '', status: 'open', choreType: 'standard', time: '5' };
     const html = ejs.render(source, {
       ...current, selectedMonth: current.month, isAdmin, t: translator(language),
       users: [{ id: 2, display_name: 'Alex' }, { id: 3, display_name: 'Sam <script>alert(1)</script>' }],
     }, { filename });
     assert.doesNotMatch(html, /<select|<script>/);
     const rows = [...html.matchAll(/<nav[^>]+aria-labelledby="filter-([^"]+)"[^>]*>([\s\S]*?)<\/nav>/g)];
-    assert.deepEqual(rows.map(row => row[1]), isAdmin ? ['choreType', 'status', 'member'] : ['choreType', 'status']);
+    assert.deepEqual(rows.map(row => row[1]), isAdmin ? ['choreType', 'status', 'member', 'time'] : ['choreType', 'status', 'time']);
     for (const [, category, row] of rows) {
       const links = [...row.matchAll(/<a[^>]+href="([^"]+)"([^>]*)>/g)];
       assert.equal(links.filter(link => link[2].includes('aria-current="true"')).length, 1);
